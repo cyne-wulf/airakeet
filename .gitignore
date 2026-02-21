@@ -1,0 +1,10 @@
+.DS_Store
+/.build
+/Packages
+/Package.resolved
+/*.xcodeproj
+/*.xcworkspace
+/DerivedData
+.swiftpm
+/parakeet-spike/.build
+/parakeet-spike/Package.resolved
