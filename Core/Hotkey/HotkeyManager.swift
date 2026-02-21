@@ -10,7 +10,7 @@ public enum RecordingMode: String, CaseIterable, Sendable {
 
 @MainActor
 public final class HotkeyManager {
-    private let logger = Logger(subsystem: "com.parakeet.app", category: "HotkeyManager")
+    private let logger = Logger(subsystem: "com.airakeet.app", category: "HotkeyManager")
     private var hotKey: HotKey?
     public weak var delegate: (any HotkeyManagerDelegate)?
     

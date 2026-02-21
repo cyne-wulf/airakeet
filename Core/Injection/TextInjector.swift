@@ -2,7 +2,7 @@ import Cocoa
 import OSLog
 
 public final class TextInjector {
-    private let logger = Logger(subsystem: "com.parakeet.app", category: "TextInjector")
+    private let logger = Logger(subsystem: "com.airakeet.app", category: "TextInjector")
     
     public init() {}
     

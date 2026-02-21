@@ -2,10 +2,10 @@ import FluidAudio
 import Foundation
 
 @main
-struct ParakeetSpike {
+struct AirakeetSpike {
     static func main() async {
         do {
-            print("Starting Parakeet feasibility spike...")
+            print("Starting Airakeet feasibility spike...")
             
             // 1. Download and load models
             print("Loading models (version: .v2)...")

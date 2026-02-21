@@ -6,6 +6,6 @@
 /*.xcworkspace
 /DerivedData
 .swiftpm
-/parakeet-spike/.build
-/parakeet-spike/Package.resolved
-/Parakeet.app
+/airakeet-spike/.build
+/airakeet-spike/Package.resolved
+/Airakeet.app

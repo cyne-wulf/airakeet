@@ -22,7 +22,7 @@ struct DebugWindowView: View {
             Image(systemName: "waveform.circle.fill")
                 .font(.largeTitle)
                 .foregroundColor(.blue)
-            Text("Parakeet Debug")
+            Text("Airakeet Debug")
                 .font(.headline)
             Spacer()
         }
@@ -181,7 +181,7 @@ class DebugWindow: NSWindow {
             defer: false
         )
         window.center()
-        window.title = "Parakeet Debug"
+        window.title = "Airakeet Debug"
         window.contentView = NSHostingView(rootView: DebugWindowView(controller: controller))
         window.isReleasedWhenClosed = false
         window.makeKeyAndOrderFront(nil)

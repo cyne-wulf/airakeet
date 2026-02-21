@@ -1,12 +1,12 @@
-# Parakeet (In Progress)
+# Airakeet (In Progress)
 
-An open-source, local-first dictation app for macOS built strictly with NVIDIA Parakeet ASR. No Whisper fallback.
+An open-source, local-first dictation app for macOS built strictly with NVIDIA Airakeet ASR. No Whisper fallback.
 
 ## 🚧 Status: Alpha/In-Development
 This project is currently a functional prototype being built autonomously. 
 
 ### Recent Progress:
-- [x] **High-Performance ASR:** NVIDIA Parakeet TDT 0.6B V2 running locally on Apple Silicon via CoreML (0.11s for 5s audio).
+- [x] **High-Performance ASR:** NVIDIA Airakeet TDT 0.6B V2 running locally on Apple Silicon via CoreML (0.11s for 5s audio).
 - [x] **Stable Audio Pipeline:** Switched to `AVCaptureSession` to prevent real-time thread crashes found in `AVAudioEngine`.
 - [x] **Memory Optimization:** Automatic model unloading after 5 minutes of idle time (optimized for 8GB RAM).
 - [x] **Superwhisper-like UX:** Menubar app with global hotkeys and direct text injection.
@@ -16,7 +16,7 @@ This project is currently a functional prototype being built autonomously.
 - **Recommendation:** Open `Package.swift` in Xcode to run the app as a bundled process.
 
 ## Features
-- **Strictly Local:** Powered by NVIDIA Parakeet TDT 0.6B V2 via CoreML.
+- **Strictly Local:** Powered by NVIDIA Airakeet TDT 0.6B V2 via CoreML.
 - **Superwhisper-like UX:** Menubar-only app with global hotkeys.
 - **Recording Modes:**
   - **Hold-to-talk:** Press and hold `Option + Command + R` (Default)
@@ -27,7 +27,7 @@ This project is currently a functional prototype being built autonomously.
 ## Installation & Build
 1. Clone the repository.
 2. Open `Package.swift` in Xcode 16+.
-3. Build and run the `Parakeet` target.
+3. Build and run the `Airakeet` target.
 4. On first run, it will download the ~800MB model from HuggingFace.
 
 ## License

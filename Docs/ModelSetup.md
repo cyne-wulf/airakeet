@@ -1,16 +1,16 @@
 # Model Setup
 
-Parakeet uses a CoreML-optimized version of NVIDIA's Parakeet TDT 0.6B V2 Automatic Speech Recognition (ASR) model.
+Airakeet uses a CoreML-optimized version of NVIDIA's Airakeet TDT 0.6B V2 Automatic Speech Recognition (ASR) model.
 
 ## Checkpoint Information
-- **Model:** NVIDIA Parakeet TDT 0.6B V2 (English-only)
-- **HuggingFace ID:** `FluidInference/parakeet-tdt-0.6b-v2-coreml`
+- **Model:** NVIDIA Airakeet TDT 0.6B V2 (English-only)
+- **HuggingFace ID:** `FluidInference/airakeet-tdt-0.6b-v2-coreml`
 - **Architecture:** FastConformer-TDT
 - **Parameters:** ~600M
 - **Size:** ~800MB (FP16/CoreML)
 
 ## Automated Setup
-Parakeet is designed for seamless onboarding. The model is automatically downloaded and cached on the user's device during the first initialization using the `FluidAudio` Swift SDK:
+Airakeet is designed for seamless onboarding. The model is automatically downloaded and cached on the user's device during the first initialization using the `FluidAudio` Swift SDK:
 
 ```swift
 // Initializing ASR models via FluidAudio
@@ -31,5 +31,5 @@ If you wish to convert the original NVIDIA NeMo checkpoint manually:
 - **Latency Target:** < 2s for 5s of audio (Measured at 0.11s on M2).
 
 ## Licensing
-The Parakeet-TDT-0.6B model is released by NVIDIA under the [Creative Commons Attribution 4.0 International (CC-BY-4.0)](https://creativecommons.org/licenses/by/4.0/) license.
+The Airakeet-TDT-0.6B model is released by NVIDIA under the [Creative Commons Attribution 4.0 International (CC-BY-4.0)](https://creativecommons.org/licenses/by/4.0/) license.
 The CoreML conversion and integration are provided via [FluidAudio](https://github.com/FluidInference/FluidAudio).

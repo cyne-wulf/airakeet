@@ -10,7 +10,7 @@ public protocol AudioRecorderDelegate: AnyObject, Sendable {
 
 @MainActor
 public final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
-    private let logger = Logger(subsystem: "com.parakeet.app", category: "AudioRecorder")
+    private let logger = Logger(subsystem: "com.airakeet.app", category: "AudioRecorder")
     
     private var captureSession: AVCaptureSession?
     private var audioOutput: AVCaptureAudioDataOutput?
@@ -118,7 +118,7 @@ public final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBuffer
         }
         
         let output = AVCaptureAudioDataOutput()
-        let queue = DispatchQueue(label: "com.parakeet.audio.capture", qos: .userInteractive)
+        let queue = DispatchQueue(label: "com.airakeet.audio.capture", qos: .userInteractive)
         output.setSampleBufferDelegate(self, queue: queue)
         
         if session.canAddOutput(output) {

@@ -2,12 +2,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "Parakeet",
+    name: "Airakeet",
     platforms: [
         .macOS(.v14)
     ],
     products: [
-        .executable(name: "Parakeet", targets: ["App"])
+        .executable(name: "Airakeet", targets: ["App"])
     ],
     dependencies: [
         .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.12.1"),

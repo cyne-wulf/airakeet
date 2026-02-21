@@ -44,7 +44,7 @@ public final class AsrManagerWrapper: @unchecked Sendable {
 }
 
 public final class ASREngine: Sendable {
-    private let logger = Logger(subsystem: "com.parakeet.app", category: "ASREngine")
+    private let logger = Logger(subsystem: "com.airakeet.app", category: "ASREngine")
     private let managerContainer = AsrManagerContainer()
     private let state = EngineState()
     
@@ -63,7 +63,7 @@ public final class ASREngine: Sendable {
         
         await updateStatus(.loading)
         do {
-            logger.info("Downloading/Loading Parakeet models (v2)...")
+            logger.info("Downloading/Loading Airakeet models (v2)...")
             let models = try await AsrModels.downloadAndLoad(version: .v2)
             
             let manager = AsrManager(config: .default)

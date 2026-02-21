@@ -4,7 +4,7 @@ import OSLog
 
 @MainActor
 public final class PermissionsManager: ObservableObject {
-    private let logger = Logger(subsystem: "com.parakeet.app", category: "PermissionsManager")
+    private let logger = Logger(subsystem: "com.airakeet.app", category: "PermissionsManager")
     
     @Published public var hasMicrophonePermission = false
     @Published public var hasAccessibilityPermission = false

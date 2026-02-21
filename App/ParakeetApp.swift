@@ -5,7 +5,7 @@ import HotKey
 import AVFoundation
 
 @main
-struct ParakeetApp: App {
+struct AirakeetApp: App {
     @StateObject private var appController = AppController()
     
     var body: some Scene {
@@ -187,7 +187,7 @@ class StatusBarManager {
         self.statusBarItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         
         if let button = statusBarItem.button {
-            button.image = NSImage(systemSymbolName: "waveform.circle", accessibilityDescription: "Parakeet")
+            button.image = NSImage(systemSymbolName: "waveform.circle", accessibilityDescription: "Airakeet")
         }
         
         setupMenu()
@@ -196,7 +196,7 @@ class StatusBarManager {
     func setupMenu() {
         let menu = NSMenu()
         
-        menu.addItem(NSMenuItem(title: "Parakeet", action: nil, keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Airakeet", action: nil, keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
         
         let modeMenu = NSMenu()

@@ -3,14 +3,14 @@
 # exit on error
 set -e
 
-APP_NAME="Parakeet"
-BUNDLE_ID="com.cyne-wulf.parakeet"
+APP_NAME="Airakeet"
+BUNDLE_ID="com.cyne-wulf.airakeet"
 BUILD_PATH=".build/apple/Products/Release" # Default for swift build -c release on macOS
 # But wait, swift build usually puts it in .build/release
-BINARY_PATH=".build/release/Parakeet"
+BINARY_PATH=".build/release/Airakeet"
 
 echo "Building $APP_NAME in release mode..."
-swift build -c release --product Parakeet
+swift build -c release --product Airakeet
 
 if [ ! -f "$BINARY_PATH" ]; then
     echo "Error: Binary not found at $BINARY_PATH"
@@ -43,7 +43,7 @@ cat > "$APP_NAME.app/Contents/Info.plist" <<EOF
     <key>LSUIElement</key>
     <true/>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Parakeet needs microphone access to dictate text.</string>
+    <string>Airakeet needs microphone access to dictate text.</string>
     <key>NSHighResolutionCapable</key>
     <true/>
 </dict>

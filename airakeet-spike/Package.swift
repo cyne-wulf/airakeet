@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "parakeet-spike",
+    name: "airakeet-spike",
     platforms: [
         .macOS(.v14)
     ],
@@ -11,7 +11,7 @@ let package = Package(
     ],
     targets: [
         .executableTarget(
-            name: "parakeet-spike",
+            name: "airakeet-spike",
             dependencies: [
                 .product(name: "FluidAudio", package: "FluidAudio")
             ]
