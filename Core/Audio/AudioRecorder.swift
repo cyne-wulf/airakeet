@@ -83,15 +83,32 @@ public final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBuffer
     private let internalState = InternalState()
     private var lastRecordingURL: URL?
 
+    public var selectedDeviceID: String?
+
     public override init() {
         super.init()
+    }
+    
+    public static func availableDevices() -> [AVCaptureDevice] {
+        let discoverySession = AVCaptureDevice.DiscoverySession(
+            deviceTypes: [.microphone],
+            mediaType: .audio,
+            position: .unspecified
+        )
+        return discoverySession.devices
     }
     
     public func startRecording() throws {
         guard !isRecording else { return }
         
         let session = AVCaptureSession()
-        guard let device = AVCaptureDevice.default(for: .audio) else {
+        
+        let device: AVCaptureDevice
+        if let deviceID = selectedDeviceID, let found = AVCaptureDevice(uniqueID: deviceID) {
+            device = found
+        } else if let defaultDevice = AVCaptureDevice.default(for: .audio) {
+            device = defaultDevice
+        } else {
             throw NSError(domain: "AudioRecorder", code: 1, userInfo: [NSLocalizedDescriptionKey: "No audio device found"])
         }
         
@@ -113,9 +130,14 @@ public final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBuffer
         self.captureSession = session
         self.audioOutput = output
         
-        session.startRunning()
+        // startRunning() must be called on a background thread to avoid UI hang
+        let sessionToRun = session
+        DispatchQueue.global(qos: .userInitiated).async {
+            sessionToRun.startRunning()
+        }
+        
         isRecording = true
-        logger.info("Recording started (AVCaptureSession)")
+        logger.info("Recording started with device: \(device.localizedName)")
     }
     
     nonisolated public func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
@@ -159,7 +181,12 @@ public final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBuffer
     public func stopRecording() async throws -> (samples: [Float], duration: TimeInterval) {
         guard isRecording else { return ([], 0) }
         
-        captureSession?.stopRunning()
+        // stopRunning() should be on background thread
+        let sessionToStop = captureSession
+        DispatchQueue.global(qos: .userInitiated).async {
+            sessionToStop?.stopRunning()
+        }
+        
         isRecording = false
         
         let rawSamples = internalState.samples

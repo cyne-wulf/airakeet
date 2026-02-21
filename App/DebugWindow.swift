@@ -53,12 +53,27 @@ struct DebugWindowView: View {
     
     var controlsSection: some View {
         VStack(spacing: 10) {
-            Button(action: { controller.startRecording() }) {
-                Text("Record 5s Test")
+            if controller.isRecording {
+                Button(action: { controller.stopRecording() }) {
+                    HStack {
+                        Image(systemName: "stop.fill")
+                        Text("Stop Recording")
+                    }
                     .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.red)
+            } else {
+                Button(action: { controller.startTestRecording() }) {
+                    HStack {
+                        Image(systemName: "record.circle")
+                        Text("Record 5s Test")
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(controller.isRecording)
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(controller.isRecording)
             
             HStack {
                 Button(action: { controller.reTranscribeLast() }) {
@@ -66,14 +81,14 @@ struct DebugWindowView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
-                .disabled(controller.lastResult == nil)
+                .disabled(controller.lastResult == nil || controller.isRecording)
                 
                 Button(action: { controller.injectLastResult() }) {
                     Text("Inject Last Result")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
-                .disabled(controller.lastResult == nil)
+                .disabled(controller.lastResult == nil || controller.isRecording)
             }
         }
     }

@@ -1,39 +1,34 @@
-# Parakeet
+# Parakeet (In Progress)
 
 An open-source, local-first dictation app for macOS built strictly with NVIDIA Parakeet ASR. No Whisper fallback.
+
+## 🚧 Status: Alpha/In-Development
+This project is currently a functional prototype being built autonomously. 
+
+### Recent Progress:
+- [x] **High-Performance ASR:** NVIDIA Parakeet TDT 0.6B V2 running locally on Apple Silicon via CoreML (0.11s for 5s audio).
+- [x] **Stable Audio Pipeline:** Switched to `AVCaptureSession` to prevent real-time thread crashes found in `AVAudioEngine`.
+- [x] **Memory Optimization:** Automatic model unloading after 5 minutes of idle time (optimized for 8GB RAM).
+- [x] **Superwhisper-like UX:** Menubar app with global hotkeys and direct text injection.
+
+### Known Technical Challenges:
+- **macOS Permissions:** The app currently hits a `Trace/BPT trap: 5` when run from the command line because `AVCaptureSession` requires a proper macOS App Bundle (`.app`) with a valid `Info.plist` and `NSMicrophoneUsageDescription`. 
+- **Recommendation:** Open `Package.swift` in Xcode to run the app as a bundled process.
 
 ## Features
 - **Strictly Local:** Powered by NVIDIA Parakeet TDT 0.6B V2 via CoreML.
 - **Superwhisper-like UX:** Menubar-only app with global hotkeys.
 - **Recording Modes:**
-  - **Hold-to-talk:** Press and hold `Option + Cmd + R` to record, release to stop.
-  - **Toggle dictation:** Press `Option + Cmd + R` to start, press again to stop.
-- **Direct Injection:** Transcribes audio and injects text directly into the focused application.
-- **Fast:** Sub-second latency on Apple Silicon (M-series).
-
-## Performance (Apple M2)
-Measured on a 5-second audio sample:
-- **Inference Time:** 0.11s
-- **Real-time Factor:** 45.72x
-- **End-to-Text Latency:** ~0.2s after audio ends.
+  - **Hold-to-talk:** Press and hold `Option + Command + R` (Default)
+  - **Toggle dictation:** Press to start, press to stop.
+- **Direct Injection:** Transcribes audio and injects text via Clipboard + CMD+V.
+- **Fast:** ~45x real-time factor on Apple M2.
 
 ## Installation & Build
 1. Clone the repository.
-2. Open in Xcode 16+ or use Swift Package Manager.
+2. Open `Package.swift` in Xcode 16+.
 3. Build and run the `Parakeet` target.
-4. On first run, the app will download the ~800MB Parakeet model from HuggingFace via the `FluidAudio` SDK.
-
-## Permissions
-Parakeet requires:
-1. **Microphone:** To capture your voice.
-2. **Accessibility:** To detect global hotkeys and inject text into other apps.
-*Note: You will be prompted for these on first use or via the Test/Debug window.*
-
-## Usage
-1. Click the waveform icon in the menubar.
-2. Choose your preferred mode (Hold-to-talk is default).
-3. Use `Option + Cmd + R` to dictate.
-4. Text will appear at your cursor in the active app.
+4. On first run, it will download the ~800MB model from HuggingFace.
 
 ## License
 MIT (App) / CC-BY-4.0 (Model)

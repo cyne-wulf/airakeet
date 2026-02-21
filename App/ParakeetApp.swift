@@ -2,6 +2,7 @@ import SwiftUI
 import Core
 import FluidAudio
 import HotKey
+import AVFoundation
 
 @main
 struct ParakeetApp: App {
@@ -28,6 +29,8 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     @Published var isRecording = false
     @Published var currentPower: Float = 0
     @Published var mode: RecordingMode = .holdToTalk
+    @Published var availableDevices: [AVCaptureDevice] = []
+    @Published var selectedDeviceID: String?
     
     private var idleTimer: Timer?
     private let idleTimeout: TimeInterval = 300 // 5 minutes
@@ -39,6 +42,10 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     
     private func setup() {
         hotkeyManager.delegate = self
+        
+        // Load initial devices
+        self.availableDevices = AudioRecorder.availableDevices()
+        self.selectedDeviceID = AVCaptureDevice.default(for: .audio)?.uniqueID
         
         // Initialize ASR engine (starts model download/load)
         Task {
@@ -52,6 +59,15 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
         }
         
         statusBarManager = StatusBarManager(controller: self)
+    }
+    
+    func refreshDevices() {
+        self.availableDevices = AudioRecorder.availableDevices()
+    }
+    
+    func changeDevice(_ deviceID: String) {
+        self.selectedDeviceID = deviceID
+        recorder.selectedDeviceID = deviceID
     }
     
     private func resetIdleTimer() {
@@ -92,6 +108,15 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
                 print("Failed to start recording: \(error)")
                 resetIdleTimer()
             }
+        }
+    }
+    
+    func startTestRecording() {
+        startRecording()
+        // Automatically stop after 5 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+            guard let self = self, self.isRecording else { return }
+            self.stopRecording()
         }
     }
     
@@ -189,6 +214,27 @@ class StatusBarManager {
         modeItem.submenu = modeMenu
         menu.addItem(modeItem)
         
+        // Microphone Selector
+        let micMenu = NSMenu()
+        controller.refreshDevices()
+        controller.availableDevices.forEach { device in
+            let item = NSMenuItem(title: device.localizedName, action: #selector(changeDevice(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = device.uniqueID
+            if device.uniqueID == controller.selectedDeviceID {
+                item.state = .on
+            }
+            micMenu.addItem(item)
+        }
+        
+        if controller.availableDevices.isEmpty {
+            micMenu.addItem(NSMenuItem(title: "No devices found", action: nil, keyEquivalent: ""))
+        }
+        
+        let micItem = NSMenuItem(title: "Microphone", action: nil, keyEquivalent: "")
+        micItem.submenu = micMenu
+        menu.addItem(micItem)
+        
         menu.addItem(NSMenuItem.separator())
         
         let debugItem = NSMenuItem(title: "Open Test/Debug...", action: #selector(openDebug), keyEquivalent: "d")
@@ -207,6 +253,13 @@ class StatusBarManager {
     @objc func changeMode(_ sender: NSMenuItem) {
         if let mode = sender.representedObject as? RecordingMode {
             controller.changeMode(mode)
+            setupMenu() // Refresh checkmarks
+        }
+    }
+    
+    @objc func changeDevice(_ sender: NSMenuItem) {
+        if let deviceID = sender.representedObject as? String {
+            controller.changeDevice(deviceID)
             setupMenu() // Refresh checkmarks
         }
     }
