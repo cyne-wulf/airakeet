@@ -4,6 +4,7 @@ import FluidAudio
 import AVFoundation
 import KeyboardShortcuts
 import Combine
+import ServiceManagement
 
 @main
 struct AirakeetApp: App {
@@ -113,6 +114,26 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
         }
     }
     
+    // MARK: - Launch at Login
+    var isStartAtLogin: Bool {
+        return SMAppService.mainApp.status == .enabled
+    }
+    
+    func toggleStartAtLogin() {
+        do {
+            if isStartAtLogin {
+                try SMAppService.mainApp.unregister()
+            } else {
+                try SMAppService.mainApp.register()
+            }
+        } catch {
+            print("Airakeet: Launch at login toggle failed: \(error)")
+        }
+        // Notify UI to refresh checkmark
+        self.objectWillChange.send()
+        statusBarManager?.setupMenu()
+    }
+    
     func updateHasLastRecording() {
         if let url = recorder.getLastRecordingURL() {
             hasLastRecording = FileManager.default.fileExists(atPath: url.path)
@@ -218,8 +239,7 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     
     nonisolated func audioRecorderDidUpdatePower(_ power: Float) {
         Task { @MainActor in
-            // Simple low-pass filter for smoothing
-            self.currentPower = self.currentPower * 0.6 + power * 0.4
+            self.currentPower = power
         }
     }
     
@@ -365,6 +385,12 @@ class StatusBarManager {
         hotkeyItem.target = self
         menu.addItem(hotkeyItem)
         
+        // Start at Login
+        let launchItem = NSMenuItem(title: "Start at Login", action: #selector(toggleLaunch), keyEquivalent: "")
+        launchItem.target = self
+        launchItem.state = controller.isStartAtLogin ? .on : .off
+        menu.addItem(launchItem)
+        
         let modeMenu = NSMenu()
         RecordingMode.allCases.forEach { mode in
             let item = NSMenuItem(title: mode.rawValue, action: #selector(changeMode(_:)), keyEquivalent: "")
@@ -413,6 +439,7 @@ class StatusBarManager {
         statusBarItem.menu = menu
     }
     
+    @objc func toggleLaunch() { controller.toggleStartAtLogin() }
     @objc func openHotkey() { controller.openHotkeySettings() }
     @objc func changeMode(_ sender: NSMenuItem) {
         if let mode = sender.representedObject as? RecordingMode {
