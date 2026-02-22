@@ -10,6 +10,7 @@ struct HotkeySettingsView: View {
     @State private var isListeningForFnKey = false
     @State private var fnKeyHint = ""
     @State private var localColor: Color = .blue
+    @State private var useShiftFn: Bool = false
     
     var body: some View {
         VStack(spacing: 20) {
@@ -37,7 +38,6 @@ struct HotkeySettingsView: View {
                             if localColor != .blue {
                                 Button("Reset Color") {
                                     localColor = .blue
-                                    // Sync back immediately
                                     controller.updateWaveformColor(.blue)
                                 }
                                 .buttonStyle(.link)
@@ -110,11 +110,12 @@ struct HotkeySettingsView: View {
                         
                         Button(action: { 
                             controller.toggleShiftFnShortcut()
+                            useShiftFn = controller.useShiftFnShortcut
                         }) {
                             HStack {
                                 Text("Shift + Fn (Modifier Only)")
                                 Spacer()
-                                if controller.useShiftFnShortcut {
+                                if useShiftFn {
                                     Image(systemName: "checkmark.circle.fill")
                                         .foregroundColor(.green)
                                 }
@@ -123,7 +124,7 @@ struct HotkeySettingsView: View {
                             .frame(maxWidth: .infinity, minHeight: 36)
                         }
                         .buttonStyle(.bordered)
-                        .tint(controller.useShiftFnShortcut ? .green : .primary)
+                        .tint(useShiftFn ? .green : .primary)
                     }
                 }
             }
@@ -140,6 +141,7 @@ struct HotkeySettingsView: View {
         .background(KeyEventHandler(isListening: $isListeningForFnKey))
         .onAppear {
             self.localColor = controller.waveformColor
+            self.useShiftFn = controller.useShiftFnShortcut
         }
         .onChange(of: localColor) { newColor in
             controller.updateWaveformColor(newColor)
