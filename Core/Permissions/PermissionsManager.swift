@@ -35,7 +35,7 @@ public final class PermissionsManager: ObservableObject {
     }
     
     public func checkAccessibility() {
-        // AXIsProcessTrusted() is the definitive source of truth for macOS Accessibility.
+        // Use AXIsProcessTrusted() directly as the source of truth
         let trusted = AXIsProcessTrusted()
         
         if self.hasAccessibilityPermission != trusted {
@@ -59,12 +59,13 @@ public final class PermissionsManager: ObservableObject {
         if !hasMicrophonePermission {
             let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")!
             NSWorkspace.shared.open(url)
-        } else if !hasAccessibilityPermission {
+        } else {
+            // Go to Accessibility
             let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
             NSWorkspace.shared.open(url)
         }
         
-        // Re-check after returning from settings
+        // Re-check after returning
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
             self.checkAll()
         }
