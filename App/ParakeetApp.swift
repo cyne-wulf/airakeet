@@ -15,8 +15,12 @@ struct AirakeetApp: App {
     }
 }
 
+private final class MonitorWrapper: @unchecked Sendable {
+    var monitor: Any?
+}
+
 @MainActor
-class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngineDelegate {
+class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngineDelegate, AudioRecorderDelegate {
     private var statusBarManager: StatusBarManager?
     private let asrEngine = ASREngine()
     private let recorder = AudioRecorder()
@@ -35,6 +39,9 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     private var idleTimer: Timer?
     private let idleTimeout: TimeInterval = 300 // 5 minutes
     
+    private var transcriptionTask: Task<Void, Never>?
+    private let escapeMonitorWrapper = MonitorWrapper()
+    
     override init() {
         super.init()
         setup()
@@ -42,6 +49,7 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     
     private func setup() {
         hotkeyManager.delegate = self
+        recorder.delegate = self
         
         // Load initial devices
         self.availableDevices = AudioRecorder.availableDevices()
@@ -59,6 +67,35 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
         }
         
         statusBarManager = StatusBarManager(controller: self)
+        setupEscapeMonitor()
+    }
+    
+    private func setupEscapeMonitor() {
+        // Monitor for Escape key (virtual key code 53)
+        escapeMonitorWrapper.monitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self = self else { return }
+            if event.keyCode == 53 { // Escape
+                Task { @MainActor in
+                    if self.isRecording || self.status == .transcribing {
+                        print("Escape pressed: Cancelling...")
+                        await self.cancel()
+                    }
+                }
+            }
+        }
+    }
+    
+    func cancel() async {
+        if isRecording {
+            _ = try? await recorder.stopRecording()
+        }
+        
+        transcriptionTask?.cancel()
+        transcriptionTask = nil
+        
+        OverlayWindow.hide()
+        resetIdleTimer()
+        print("Operation cancelled by user.")
     }
     
     func refreshDevices() {
@@ -79,6 +116,24 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
         }
     }
     
+    // MARK: - AudioRecorderDelegate
+    nonisolated func audioRecorderDidUpdateRecordingState(_ isRecording: Bool) {
+        Task { @MainActor in
+            self.isRecording = isRecording
+            if isRecording {
+                OverlayWindow.show(view: AnyView(RecordingOverlayView(controller: self)))
+            } else if status != .transcribing {
+                OverlayWindow.hide()
+            }
+        }
+    }
+    
+    nonisolated func audioRecorderDidUpdatePower(_ power: Float) {
+        Task { @MainActor in
+            self.currentPower = power
+        }
+    }
+    
     // MARK: - HotkeyManagerDelegate
     func hotkeyDidStart() {
         startRecording()
@@ -91,6 +146,11 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     // MARK: - ASREngineDelegate
     func asrEngineDidUpdateStatus(_ status: ASREngineStatus) {
         self.status = status
+        if status == .ready && !isRecording {
+            OverlayWindow.hide()
+        } else if status == .transcribing {
+            OverlayWindow.show(view: AnyView(RecordingOverlayView(controller: self)))
+        }
     }
     
     // MARK: - Actions
@@ -103,10 +163,10 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
                 // Ensure models are loaded before starting
                 try await asrEngine.ensureInitialized()
                 try recorder.startRecording()
-                isRecording = true
             } catch {
                 print("Failed to start recording: \(error)")
                 resetIdleTimer()
+                OverlayWindow.hide()
             }
         }
     }
@@ -116,18 +176,30 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     }
     
     func stopRecording() {
-        guard isRecording else { return }
-        isRecording = false
-        
-        Task {
-            defer { resetIdleTimer() }
+        transcriptionTask = Task {
+            defer { 
+                resetIdleTimer() 
+                transcriptionTask = nil
+            }
+            
             do {
                 let (samples, duration) = try await recorder.stopRecording()
+                
+                // Check for cancellation before ASR
+                if Task.isCancelled { return }
+                
                 let result = try await asrEngine.transcribe(samples: samples, audioDuration: duration)
+                
+                // Check for cancellation after ASR
+                if Task.isCancelled { return }
+                
                 self.lastResult = result
                 injector.inject(result.text)
             } catch {
-                print("Transcription error: \(error)")
+                if !Task.isCancelled {
+                    print("Transcription error: \(error)")
+                }
+                OverlayWindow.hide()
             }
         }
     }
@@ -138,22 +210,9 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     }
     
     func reTranscribeLast() {
-        guard let url = recorder.getLastRecordingURL() else { return }
-        // Loading samples from URL is complex here, but I'll implement a simple version or use FluidAudio's URL transcription
+        guard let _ = recorder.getLastRecordingURL() else { return }
         Task {
-            status = .transcribing
-            do {
-                // For simplicity, I'll just re-run transcription on the last samples if available
-                // In a real app, I'd reload from disk
-                // Let's assume recorder still has them or I'll save them
-                // For this MVP, I'll just use the existing last samples if I had them
-                // But let's actually re-run the asrEngine
-                if let lastResult = self.lastResult {
-                   // This is just a UI placeholder for now since I didn't store the raw samples in AppController
-                   // In a real app, I'd store them.
-                   print("Re-transcribing last result (logic simplified for spike)")
-                }
-            }
+            // Re-transcription logic if needed
         }
     }
     
@@ -169,6 +228,12 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     
     func quit() {
         NSApplication.shared.terminate(nil)
+    }
+    
+    deinit {
+        if let monitor = escapeMonitorWrapper.monitor {
+            NSEvent.removeMonitor(monitor)
+        }
     }
 }
 

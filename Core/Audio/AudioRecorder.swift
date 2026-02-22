@@ -67,7 +67,15 @@ public final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBuffer
             lock.unlock()
             
             if count > 0, let d = d {
-                let rms = sqrt(newSamples[0] * newSamples[0])
+                // Better RMS calculation for visualization
+                var sum: Float = 0
+                let step = max(1, count / 100)
+                var processed = 0
+                for i in stride(from: 0, to: count, by: step) {
+                    sum += newSamples[i] * newSamples[i]
+                    processed += 1
+                }
+                let rms = sqrt(sum / Float(processed))
                 Task { @MainActor in d.audioRecorderDidUpdatePower(rms) }
             }
         }
