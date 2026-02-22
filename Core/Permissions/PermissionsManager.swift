@@ -1,6 +1,7 @@
 import AVFoundation
 import Cocoa
 import OSLog
+import ApplicationServices
 
 @MainActor
 public final class PermissionsManager: ObservableObject {
@@ -20,8 +21,11 @@ public final class PermissionsManager: ObservableObject {
     
     public func checkMicrophone() {
         let status = AVCaptureDevice.authorizationStatus(for: .audio)
-        self.hasMicrophonePermission = (status == .authorized)
-        logger.info("Microphone permission: \(status == .authorized)")
+        let authorized = (status == .authorized)
+        if self.hasMicrophonePermission != authorized {
+            self.hasMicrophonePermission = authorized
+            logger.info("Microphone permission updated: \(authorized)")
+        }
     }
     
     public func requestMicrophone() async -> Bool {
@@ -31,17 +35,24 @@ public final class PermissionsManager: ObservableObject {
     }
     
     public func checkAccessibility() {
-        // AXIsProcessTrustedWithOptions returns true if the app is already trusted
-        let promptKey = "AXTrustedCheckOptionPrompt" as CFString
-        let options = [promptKey: false] as CFDictionary
-        self.hasAccessibilityPermission = AXIsProcessTrustedWithOptions(options)
-        logger.info("Accessibility permission: \(self.hasAccessibilityPermission)")
+        // AXIsProcessTrusted() is the definitive source of truth for macOS Accessibility.
+        let trusted = AXIsProcessTrusted()
+        
+        if self.hasAccessibilityPermission != trusted {
+            self.hasAccessibilityPermission = trusted
+            logger.info("Accessibility permission updated: \(trusted)")
+        }
     }
     
     public func requestAccessibility() {
         let promptKey = "AXTrustedCheckOptionPrompt" as CFString
         let options = [promptKey: true] as CFDictionary
         AXIsProcessTrustedWithOptions(options)
+        
+        // Re-check after a short delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            self.checkAccessibility()
+        }
     }
     
     public func openSystemSettings() {
@@ -51,6 +62,11 @@ public final class PermissionsManager: ObservableObject {
         } else if !hasAccessibilityPermission {
             let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
             NSWorkspace.shared.open(url)
+        }
+        
+        // Re-check after returning from settings
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            self.checkAll()
         }
     }
 }
