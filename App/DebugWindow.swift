@@ -64,10 +64,10 @@ struct DebugWindowView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(.red)
             } else {
-                Button(action: { controller.startTestRecording() }) {
+                Button(action: { controller.startManualRecording() }) {
                     HStack {
                         Image(systemName: "record.circle")
-                        Text("Record 5s Test")
+                        Text("Start Test Recording")
                     }
                     .frame(maxWidth: .infinity)
                 }

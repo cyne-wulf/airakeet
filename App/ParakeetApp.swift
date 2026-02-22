@@ -111,13 +111,8 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
         }
     }
     
-    func startTestRecording() {
+    func startManualRecording() {
         startRecording()
-        // Automatically stop after 5 seconds
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
-            guard let self = self, self.isRecording else { return }
-            self.stopRecording()
-        }
     }
     
     func stopRecording() {
