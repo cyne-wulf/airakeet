@@ -3,6 +3,7 @@ import Core
 import FluidAudio
 import HotKey
 import AVFoundation
+import KeyboardShortcuts
 
 @main
 struct AirakeetApp: App {
@@ -55,6 +56,12 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
         self.availableDevices = AudioRecorder.availableDevices()
         self.selectedDeviceID = AVCaptureDevice.default(for: .audio)?.uniqueID
         
+        // Set default hotkey if none exists
+        if KeyboardShortcuts.getShortcut(for: .toggleAirakeet) == nil {
+            // Default: Fn + Backtick
+            KeyboardShortcuts.setShortcut(KeyboardShortcuts.Shortcut(.backtick, modifiers: [.function]), for: .toggleAirakeet)
+        }
+        
         // Initialize ASR engine (starts model download/load)
         Task {
             await asrEngine.setDelegate(self)
@@ -105,6 +112,10 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     func changeDevice(_ deviceID: String) {
         self.selectedDeviceID = deviceID
         recorder.selectedDeviceID = deviceID
+    }
+    
+    func openHotkeySettings() {
+        HotkeySettingsWindow.show()
     }
     
     private func resetIdleTimer() {
@@ -259,6 +270,12 @@ class StatusBarManager {
         menu.addItem(NSMenuItem(title: "Airakeet", action: nil, keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
         
+        let hotkeyItem = NSMenuItem(title: "Set Hotkey...", action: #selector(openHotkey), keyEquivalent: "k")
+        hotkeyItem.target = self
+        menu.addItem(hotkeyItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
         let modeMenu = NSMenu()
         RecordingMode.allCases.forEach { mode in
             let item = NSMenuItem(title: mode.rawValue, action: #selector(changeMode(_:)), keyEquivalent: "")
@@ -308,6 +325,10 @@ class StatusBarManager {
         menu.addItem(quitItem)
         
         statusBarItem.menu = menu
+    }
+    
+    @objc func openHotkey() {
+        controller.openHotkeySettings()
     }
     
     @objc func changeMode(_ sender: NSMenuItem) {

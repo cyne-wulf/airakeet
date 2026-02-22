@@ -11,7 +11,8 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.12.1"),
-        .package(url: "https://github.com/soffes/HotKey", from: "0.1.3")
+        .package(url: "https://github.com/soffes/HotKey", from: "0.1.3"),
+        .package(url: "https://github.com/sindresorhus/KeyboardShortcuts", from: "2.0.0")
     ],
     targets: [
         .executableTarget(
@@ -19,7 +20,8 @@ let package = Package(
             dependencies: [
                 "Core",
                 .product(name: "FluidAudio", package: "FluidAudio"),
-                .product(name: "HotKey", package: "HotKey")
+                .product(name: "HotKey", package: "HotKey"),
+                .product(name: "KeyboardShortcuts", package: "KeyboardShortcuts")
             ],
             path: "App"
         ),
@@ -27,7 +29,8 @@ let package = Package(
             name: "Core",
             dependencies: [
                 .product(name: "FluidAudio", package: "FluidAudio"),
-                .product(name: "HotKey", package: "HotKey")
+                .product(name: "HotKey", package: "HotKey"),
+                .product(name: "KeyboardShortcuts", package: "KeyboardShortcuts")
             ],
             path: "Core"
         )
