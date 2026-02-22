@@ -18,6 +18,7 @@ if [ ! -f "$BINARY_PATH" ]; then
 fi
 
 echo "Creating $APP_NAME.app bundle..."
+rm -rf "$APP_NAME.app"
 mkdir -p "$APP_NAME.app/Contents/MacOS"
 mkdir -p "$APP_NAME.app/Contents/Resources"
 
