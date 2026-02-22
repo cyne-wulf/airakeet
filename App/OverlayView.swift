@@ -70,12 +70,14 @@ struct RecordingOverlayView: View {
     private func barHeight(for index: Int) -> CGFloat {
         let base: CGFloat = 4
         
-        // HIGHER EXPO REACTIVITY
-        // Use a much steeper curve (power of 3) to make it pop only when speaking
-        let power = CGFloat(max(0, controller.currentPower - 0.02)) // Noise gate
-        let reactivePower = pow(power * 15, 3.0) 
+        // TUNED REACTIVITY
+        // Lower noise gate to pick up subtle speech
+        let power = CGFloat(max(0, controller.currentPower - 0.005)) 
         
-        let multiplier: CGFloat = 30.0
+        // Softer curve (1.5) to allow mid-range volumes to show
+        let reactivePower = pow(power * 8, 1.5) 
+        
+        let multiplier: CGFloat = 20.0
         let idleMovement = sin(phase + Double(index) * 0.8) * 3
         
         // Centrality for 12 bars (center is between 5 and 6)

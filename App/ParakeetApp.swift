@@ -218,7 +218,8 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     
     nonisolated func audioRecorderDidUpdatePower(_ power: Float) {
         Task { @MainActor in
-            self.currentPower = power
+            // Simple low-pass filter for smoothing
+            self.currentPower = self.currentPower * 0.6 + power * 0.4
         }
     }
     
