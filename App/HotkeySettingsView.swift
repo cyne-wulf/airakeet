@@ -21,6 +21,7 @@ struct HotkeySettingsView: View {
             HStack {
                 Text("Shortcut:")
                 KeyboardShortcuts.Recorder(for: .toggleAirakeet)
+                    .fixedSize()
             }
             .padding()
             .background(Color.gray.opacity(0.1))
@@ -45,6 +46,7 @@ class HotkeySettingsWindow: NSWindow {
     static var shared: HotkeySettingsWindow?
     
     static func show() {
+        NSApp.activate(ignoringOtherApps: true)
         if let shared = shared {
             shared.makeKeyAndOrderFront(nil)
             return

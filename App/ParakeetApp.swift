@@ -1,7 +1,6 @@
 import SwiftUI
 import Core
 import FluidAudio
-import HotKey
 import AVFoundation
 import KeyboardShortcuts
 import Combine
@@ -275,6 +274,7 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     }
     
     func openDebugWindow() {
+        NSApp.activate(ignoringOtherApps: true)
         DebugWindow.show(controller: self)
     }
     
