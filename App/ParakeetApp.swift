@@ -118,6 +118,31 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
         print("Airakeet: Last recording deleted.")
     }
     
+    func saveLastRecording() {
+        guard let sourceURL = recorder.getLastRecordingURL() else { return }
+        
+        let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [.wav]
+        savePanel.canCreateDirectories = true
+        savePanel.isExtensionHidden = false
+        savePanel.title = "Save Recording"
+        savePanel.message = "Choose a location to save the audio file."
+        savePanel.nameFieldStringValue = "recording_\(Int(Date().timeIntervalSince1970)).wav"
+        
+        let response = savePanel.runModal()
+        if response == .OK, let targetURL = savePanel.url {
+            do {
+                if FileManager.default.fileExists(atPath: targetURL.path) {
+                    try FileManager.default.removeItem(at: targetURL)
+                }
+                try FileManager.default.copyItem(at: sourceURL, to: targetURL)
+                print("Airakeet: Recording saved to \(targetURL.path)")
+            } catch {
+                print("Airakeet: Save error: \(error)")
+            }
+        }
+    }
+    
     func refreshDevices() {
         self.availableDevices = AudioRecorder.availableDevices()
     }

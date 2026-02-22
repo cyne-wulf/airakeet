@@ -129,6 +129,14 @@ struct DebugWindowView: View {
                         }
                         .buttonStyle(.bordered)
                         
+                        Button(action: { controller.saveLastRecording() }) {
+                            HStack {
+                                Image(systemName: "arrow.down.doc.fill")
+                                Text("Save...")
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        
                         Button(action: { controller.deleteLastRecording() }) {
                             Image(systemName: "trash")
                                 .foregroundColor(.red)
