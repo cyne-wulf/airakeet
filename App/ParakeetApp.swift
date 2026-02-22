@@ -22,8 +22,17 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     private let asrEngine = ASREngine()
     private let recorder = AudioRecorder()
     private let injector = TextInjector()
-    private let hotkeyManager = HotkeyManager()
+    let hotkeyManager = HotkeyManager()
     @Published var permissions = PermissionsManager()
+    
+    var useShiftFnShortcut: Bool {
+        hotkeyManager.useShiftFnShortcut
+    }
+    
+    func toggleShiftFnShortcut() {
+        hotkeyManager.useShiftFnShortcut.toggle()
+        self.objectWillChange.send()
+    }
     
     @Published var lastResult: TranscriptionResult?
     @Published var status: ASREngineStatus = .idle
@@ -152,7 +161,7 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     }
     
     func openHotkeySettings() {
-        HotkeySettingsWindow.show()
+        HotkeySettingsWindow.show(controller: self)
     }
     
     private func resetIdleTimer() {

@@ -3,6 +3,7 @@ import KeyboardShortcuts
 import Core
 
 struct HotkeySettingsView: View {
+    @ObservedObject var controller: AppController
     @State private var isListeningForFnKey = false
     @State private var fnKeyHint = ""
     
@@ -18,6 +19,31 @@ struct HotkeySettingsView: View {
             }
             
             VStack(alignment: .leading, spacing: 16) {
+                // SUGGESTED BINDS
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("SUGGESTED BINDS")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(.secondary)
+                    
+                    Button(action: { 
+                        controller.toggleShiftFnShortcut()
+                    }) {
+                        HStack {
+                            Text("Shift + Fn")
+                            Spacer()
+                            if controller.useShiftFnShortcut {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                        .frame(maxWidth: .infinity, minHeight: 36)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(controller.useShiftFnShortcut ? .green : .primary)
+                }
+                
                 // Standard Recorder
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Standard Shortcut")
@@ -68,10 +94,9 @@ struct HotkeySettingsView: View {
                 }
             }
             
-            Text("Note: Use the blue box above to set a shortcut using the 'Fn' key. Just click it and tap the key you want to use with Fn.")
+            Text("Note: Shift + Fn is a specialized modifier-only bind.")
                 .font(.caption2)
                 .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
             
             Button("Done") {
                 NSApplication.shared.keyWindow?.close()
@@ -135,7 +160,7 @@ struct KeyEventHandler: NSViewRepresentable {
 class HotkeySettingsWindow: NSWindow {
     static var shared: HotkeySettingsWindow?
     
-    static func show() {
+    static func show(controller: AppController) {
         NSApp.activate(ignoringOtherApps: true)
         
         if let shared = shared {
@@ -144,14 +169,14 @@ class HotkeySettingsWindow: NSWindow {
         }
         
         let window = HotkeySettingsWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 400, height: 400),
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 500),
             styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.center()
         window.title = "Airakeet Hotkey"
-        window.contentView = NSHostingView(rootView: HotkeySettingsView())
+        window.contentView = NSHostingView(rootView: HotkeySettingsView(controller: controller))
         window.isReleasedWhenClosed = false
         window.makeKeyAndOrderFront(nil)
         shared = window
