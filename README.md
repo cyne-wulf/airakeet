@@ -24,8 +24,8 @@ I built this because I was tired of "lightweight" dictation apps that still cons
 - **Fast:** ~45x real-time factor on Apple M2 (0.11s for 5s of audio).
 
 ## Design Decisions
-### Streamlined Control
-To keep Airakeet's footprint as small as possible on 8GB machines, we focus strictly on the primary hotkey for control. This minimizes background CPU usage and keeps the app's security profile limited to the essential "Dictation" task.
+### Why no "Escape to Cancel?"
+To keep Airakeet's footprint as small as possible on 8GB machines, I opted not to include global keyboard event listeners beyond the primary hotkey. This minimizes background CPU usage and keeps the app's security profile strictly limited to the essential "Dictation" task.
 
 ### Memory Management
 Airakeet uses an "extract-and-clear" strategy for audio data. Raw samples are moved out of active memory immediately when recording stops, and the ~800MB ASR model is automatically unloaded after 5 minutes of inactivity.
