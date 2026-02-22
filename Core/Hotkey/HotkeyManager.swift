@@ -14,7 +14,7 @@ public final class HotkeyManager {
     private var hotKey: HotKey?
     public weak var delegate: (any HotkeyManagerDelegate)?
     
-    public var mode: RecordingMode = .holdToTalk {
+    public var mode: RecordingMode = .toggle {
         didSet { 
             logger.info("Recording mode changed to \(self.mode.rawValue)")
             setupHotKey() 
@@ -28,9 +28,9 @@ public final class HotkeyManager {
     }
     
     public func setupHotKey() {
-        // Default: Option + Cmd + R
-        // In a real app, this would be customizable
-        hotKey = HotKey(key: .r, modifiers: [.command, .option])
+        // Default: Fn + ` (Backtick)
+        // Backtick key is .grave in HotKey library
+        hotKey = HotKey(key: .grave, modifiers: [.function])
         
         hotKey?.keyDownHandler = { [weak self] in
             guard let self = self else { return }
@@ -64,7 +64,7 @@ public final class HotkeyManager {
             }
         }
         
-        logger.info("Global hotkey registered: Option + Cmd + R")
+        logger.info("Global hotkey registered: Fn + `")
     }
 }
 

@@ -32,7 +32,7 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     @Published var status: ASREngineStatus = .idle
     @Published var isRecording = false
     @Published var currentPower: Float = 0
-    @Published var mode: RecordingMode = .holdToTalk
+    @Published var mode: RecordingMode = .toggle
     @Published var availableDevices: [AVCaptureDevice] = []
     @Published var selectedDeviceID: String?
     
