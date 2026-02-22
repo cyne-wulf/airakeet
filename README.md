@@ -4,10 +4,6 @@
 
 Airakeet is an open-source, local-first dictation app designed specifically for the **8GB MacBook Air**. It brings the power of NVIDIA's Parakeet ASR model to your Mac without melting your RAM or draining your battery.
 
-<p align="center">
-  <img src="Final-icon.png" width="256" height="256">
-</p>
-
 ## Why Airakeet?
 I built this because I was tired of "lightweight" dictation apps that still consumed 2-3GB of RAM, choking my base model M2 Air. I wanted the accuracy of modern large models (like Whisper or Parakeet) but with the efficiency of a native tool.
 
