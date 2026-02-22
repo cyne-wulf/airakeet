@@ -16,9 +16,10 @@ I built this because I was tired of "lightweight" dictation apps that still cons
 ## Features
 - **Strictly Local:** Powered by NVIDIA Parakeet TDT 0.6B V2 via CoreML.
 - **Superwhisper-like UX:** Menubar-only app with global hotkeys.
-- **Recording Modes:**
-  - **Toggle dictation:** Tap to start, tap to stop (Default).
-  - **Hold-to-talk:** Press and hold to record.
+- **Reactive Waveform:** A sleek, liquid-motion overlay that reacts to your voice in real-time.
+- **Custom Appearance:** Choose your own waveform color to match your setup.
+- **Configurable Hotkeys:** Support for standard Mac shortcuts, custom `Fn + Key` combos, and a specialized `Shift + Fn` modifier-only trigger.
+- **Audio Cache:** "Play Last Recording" feature in the debug menu to verify what the engine heard (disk-cached to save RAM).
 - **Direct Injection:** Transcribes audio and injects text via Clipboard + CMD+V.
 - **Fast:** ~45x real-time factor on Apple M2 (0.11s for 5s of audio).
 
