@@ -136,7 +136,7 @@ struct HotkeySettingsView: View {
                             useShiftFn = controller.useShiftFnShortcut
                         }) {
                             HStack {
-                                Text("Shift + Fn (Modifier Only)")
+                                Text("Shift + Fn")
                                 Spacer()
                                 if useShiftFn {
                                     Image(systemName: "checkmark.circle.fill")
