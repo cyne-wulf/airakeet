@@ -54,34 +54,43 @@ struct HotkeySettingsView: View {
                     
                     // Standard Recorder
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("STANDARD SHORTCUT")
+                        Text("ACTIVE SHORTCUT")
                             .font(.caption)
                             .fontWeight(.bold)
                             .foregroundColor(.secondary)
                         
                         HStack {
-                            if controller.useShiftFnShortcut {
-                                HStack {
+                            if useShiftFn {
+                                HStack(spacing: 4) {
                                     Image(systemName: "globe")
                                     Image(systemName: "shift.fill")
-                                    Text("Fn + Shift (Active)")
                                 }
-                                .padding(6)
-                                .background(Color.green.opacity(0.1))
-                                .cornerRadius(6)
+                                .font(.system(size: 14, weight: .semibold))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(Color.secondary.opacity(0.1))
+                                .cornerRadius(4)
+                                
+                                Text("Fn + Shift")
+                                    .foregroundColor(.secondary)
                             } else {
                                 KeyboardShortcuts.Recorder(for: .toggleAirakeet)
                                     .fixedSize()
                             }
                             
                             Spacer()
-                            if !controller.useShiftFnShortcut {
-                                Button("Reset Default") {
-                                    KeyboardShortcuts.setShortcut(KeyboardShortcuts.Shortcut(.backtick, modifiers: [.function]), for: .toggleAirakeet)
+                            
+                            // Always show reset unless it's already default Fn+`
+                            Button("Reset Default") {
+                                // Disable special mode first
+                                if useShiftFn {
+                                    controller.toggleShiftFnShortcut()
+                                    useShiftFn = false
                                 }
-                                .buttonStyle(.link)
-                                .font(.caption)
+                                KeyboardShortcuts.setShortcut(KeyboardShortcuts.Shortcut(.backtick, modifiers: [.function]), for: .toggleAirakeet)
                             }
+                            .buttonStyle(.link)
+                            .font(.caption)
                         }
                         .padding()
                         .background(Color.gray.opacity(0.1))
