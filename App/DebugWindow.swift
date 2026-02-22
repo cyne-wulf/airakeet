@@ -3,7 +3,6 @@ import Core
 
 struct DebugWindowView: View {
     @ObservedObject var controller: AppController
-    @StateObject private var permissions = PermissionsManager()
     
     var body: some View {
         VStack(spacing: 20) {
@@ -84,8 +83,11 @@ struct DebugWindowView: View {
                 .disabled(controller.lastResult == nil || controller.isRecording)
                 
                 Button(action: { controller.injectLastResult() }) {
-                    Text("Inject Last Result")
-                        .frame(maxWidth: .infinity)
+                    HStack {
+                        Image(systemName: "square.and.arrow.down")
+                        Text("Inject Last Result")
+                    }
+                    .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
                 .disabled(controller.lastResult == nil || controller.isRecording)
@@ -152,21 +154,43 @@ struct DebugWindowView: View {
     }
     
     var permissionsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Permissions:")
-                .fontWeight(.bold)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("REQUIRED PERMISSIONS")
+                    .font(.caption)
+                    .fontWeight(.black)
+                    .foregroundColor(.secondary)
+                Spacer()
+                Button(action: { controller.permissions.checkAll() }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.clockwise")
+                        Text("Refresh")
+                    }
+                    .font(.caption2)
+                }
+                .buttonStyle(.link)
+            }
             
-            permissionRow(label: "Microphone", granted: permissions.hasMicrophonePermission)
-            permissionRow(label: "Accessibility", granted: permissions.hasAccessibilityPermission)
+            permissionRow(label: "Microphone", granted: controller.permissions.hasMicrophonePermission)
+            permissionRow(label: "Accessibility", granted: controller.permissions.hasAccessibilityPermission)
+            
+            if !controller.permissions.hasMicrophonePermission || !controller.permissions.hasAccessibilityPermission {
+                Text("Airakeet cannot function without these permissions.")
+                    .font(.caption2)
+                    .foregroundColor(.red)
+                    .padding(.top, 4)
+            }
             
             Button("Open System Settings") {
-                permissions.openSystemSettings()
+                controller.permissions.openSystemSettings()
             }
-            .font(.caption)
+            .buttonStyle(.bordered)
+            .controlSize(.small)
         }
         .padding()
+        .background(Color.red.opacity(controller.permissions.hasMicrophonePermission && controller.permissions.hasAccessibilityPermission ? 0 : 0.1))
         .background(Color.gray.opacity(0.05))
-        .cornerRadius(8)
+        .cornerRadius(12)
     }
     
     func metricRow(label: String, value: String) -> some View {
@@ -181,22 +205,33 @@ struct DebugWindowView: View {
     
     func permissionRow(label: String, granted: Bool) -> some View {
         HStack {
-            Image(systemName: granted ? "checkmark.circle.fill" : "xmark.circle.fill")
+            Image(systemName: granted ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
                 .foregroundColor(granted ? .green : .red)
-            Text(label)
+                .font(.title3)
+            
+            VStack(alignment: .leading) {
+                Text(label)
+                    .fontWeight(.bold)
+                Text(granted ? "Permission Granted" : "Permission Missing")
+                    .font(.caption2)
+                    .foregroundColor(granted ? .secondary : .red)
+            }
+            
             Spacer()
+            
             if !granted {
-                Button("Request") {
+                Button("Grant") {
                     if label == "Microphone" {
-                        Task { await permissions.requestMicrophone() }
+                        Task { await controller.permissions.requestMicrophone() }
                     } else {
-                        permissions.requestAccessibility()
+                        controller.permissions.requestAccessibility()
                     }
                 }
-                .buttonStyle(.link)
-                .font(.caption)
+                .buttonStyle(.bordered)
+                .controlSize(.small)
             }
         }
+        .padding(.vertical, 4)
     }
 }
 
