@@ -5,8 +5,10 @@ struct RecordingOverlayView: View {
     @ObservedObject var controller: AppController
     @State private var phase: Double = 0
     
+    let timer = Timer.publish(every: 0.05, on: .main, in: .common).autoconnect()
+    
     var body: some View {
-        VStack(spacing: 12) {
+        HStack(spacing: 16) {
             if controller.status == .transcribing {
                 loadingView
             } else {
@@ -14,16 +16,21 @@ struct RecordingOverlayView: View {
             }
         }
         .padding(.horizontal, 24)
-        .padding(.vertical, 16)
-        .background(.ultraThinMaterial)
-        .clipShape(Capsule())
-        .overlay(
-            Capsule()
-                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
-        )
-        .shadow(color: .black.opacity(0.2), radius: 20, x: 0, y: 10)
-        .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity),
-                                 removal: .opacity))
+        .frame(height: 56) // FIXED HEIGHT to stop jiggling
+        .background {
+            ZStack {
+                Capsule()
+                    .fill(.ultraThinMaterial)
+                Capsule()
+                    .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+            }
+        }
+        .shadow(color: .black.opacity(0.15), radius: 15, x: 0, y: 8)
+        .onReceive(timer) { _ in
+            withAnimation(.linear(duration: 0.05)) {
+                phase += 0.5
+            }
+        }
     }
     
     var loadingView: some View {
@@ -34,32 +41,49 @@ struct RecordingOverlayView: View {
                 .font(.system(.body, design: .rounded))
                 .fontWeight(.medium)
                 .foregroundStyle(.secondary)
+                .fixedSize() // Prevents text from being cut off
         }
     }
     
     var waveformView: some View {
-        HStack(spacing: 4) {
+        HStack(alignment: .center, spacing: 3) {
             // Animated Waveform Bars
-            ForEach(0..<8) { i in
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(Color.blue.gradient)
-                    .frame(width: 3, height: barHeight(for: i))
-                    .animation(.spring(response: 0.3, dampingFraction: 0.5), value: controller.currentPower)
+            HStack(alignment: .center, spacing: 3) {
+                ForEach(0..<12) { i in
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(controller.waveformColor.gradient)
+                        .frame(width: 3, height: barHeight(for: i))
+                        .animation(.spring(response: 0.15, dampingFraction: 0.4), value: controller.currentPower)
+                        .animation(.linear(duration: 0.05), value: phase)
+                }
             }
+            .frame(width: 75) // Fixed width for bar area
             
             Text("Listening...")
                 .font(.system(.body, design: .rounded))
                 .fontWeight(.bold)
-                .padding(.leading, 8)
+                .padding(.leading, 4)
+                .fixedSize() // Prevents text from being cut off
         }
     }
     
     private func barHeight(for index: Int) -> CGFloat {
         let base: CGFloat = 4
-        let multiplier = CGFloat(controller.currentPower * 50)
-        // Add some variation based on index
-        let variation = sin(Double(index) + phase) * 2
-        return min(24, max(base, base + multiplier + CGFloat(variation)))
+        
+        // Use peak power with a steeper curve for better reactivity
+        let power = CGFloat(controller.currentPower)
+        let reactivePower = pow(power * 12, 1.8) 
+        
+        let multiplier: CGFloat = 16.0
+        let idleMovement = sin(phase + Double(index) * 0.8) * 3
+        
+        // Centrality for 12 bars (center is between 5 and 6)
+        let centrality = 1.0 - abs(CGFloat(index) - 5.5) / 6.0
+        let voicedHeight = reactivePower * multiplier * centrality
+        
+        let finalHeight = base + voicedHeight + idleMovement
+        
+        return min(32, max(base, finalHeight))
     }
 }
 
