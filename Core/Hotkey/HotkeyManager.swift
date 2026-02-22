@@ -61,11 +61,13 @@ public final class HotkeyManager {
         monitorWrapper.monitor = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
             guard let self = self, self.useShiftFnShortcut else { return }
             
-            let flags = event.modifierFlags
-            let isFn = flags.contains(.function)
-            let isShift = flags.contains(.shift)
+            let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            // Check if EXACTLY Shift + Fn are pressed (ignoring CapsLock if necessary)
+            // Note: .function is part of deviceIndependentFlagsMask
             
-            if isFn && isShift {
+            let targetFlags: NSEvent.ModifierFlags = [.function, .shift]
+            
+            if flags == targetFlags {
                 Task { @MainActor in
                     self.handleTrigger()
                 }

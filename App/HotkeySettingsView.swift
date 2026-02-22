@@ -3,110 +3,147 @@ import KeyboardShortcuts
 import Core
 
 struct HotkeySettingsView: View {
-    @ObservedObject var controller: AppController
+    // Not observing here to avoid dynamic member lookup conflicts with bindings.
+    // The color state is managed locally and synced back.
+    var controller: AppController
+    
     @State private var isListeningForFnKey = false
     @State private var fnKeyHint = ""
+    @State private var localColor: Color = .blue
     
     var body: some View {
         VStack(spacing: 20) {
             HStack {
                 Image(systemName: "keyboard")
                     .font(.largeTitle)
-                    .foregroundColor(.blue)
-                Text("Launch Shortcut")
+                    .foregroundColor(localColor)
+                Text("Hotkey & Appearance")
                     .font(.headline)
                 Spacer()
             }
             
-            VStack(alignment: .leading, spacing: 16) {
-                // SUGGESTED BINDS
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("SUGGESTED BINDS")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .foregroundColor(.secondary)
-                    
-                    Button(action: { 
-                        controller.toggleShiftFnShortcut()
-                    }) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    // Appearance Section
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("APPEARANCE")
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .foregroundColor(.secondary)
+                        
                         HStack {
-                            Text("Shift + Fn")
+                            Text("Waveform Color")
                             Spacer()
-                            if controller.useShiftFnShortcut {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.green)
+                            if localColor != .blue {
+                                Button("Reset Color") {
+                                    localColor = .blue
+                                    // Sync back immediately
+                                    controller.updateWaveformColor(.blue)
+                                }
+                                .buttonStyle(.link)
+                                .font(.caption)
                             }
+                            
+                            ColorPicker("", selection: $localColor)
+                                .labelsHidden()
                         }
-                        .padding(.horizontal, 12)
-                        .frame(maxWidth: .infinity, minHeight: 36)
+                        .padding()
+                        .background(Color.gray.opacity(0.1))
+                        .cornerRadius(8)
                     }
-                    .buttonStyle(.bordered)
-                    .tint(controller.useShiftFnShortcut ? .green : .primary)
-                }
-                
-                // Standard Recorder
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Standard Shortcut")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .foregroundColor(.secondary)
                     
-                    HStack {
-                        KeyboardShortcuts.Recorder(for: .toggleAirakeet)
-                            .fixedSize()
-                        Spacer()
-                        Button("Reset to Default") {
-                            KeyboardShortcuts.setShortcut(KeyboardShortcuts.Shortcut(.backtick, modifiers: [.function]), for: .toggleAirakeet)
+                    // Standard Recorder
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("STANDARD SHORTCUT")
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .foregroundColor(.secondary)
+                        
+                        HStack {
+                            KeyboardShortcuts.Recorder(for: .toggleAirakeet)
+                                .fixedSize()
+                            Spacer()
+                            Button("Reset Default") {
+                                KeyboardShortcuts.setShortcut(KeyboardShortcuts.Shortcut(.backtick, modifiers: [.function]), for: .toggleAirakeet)
+                            }
+                            .buttonStyle(.link)
+                            .font(.caption)
                         }
-                        .buttonStyle(.link)
-                        .font(.caption)
+                        .padding()
+                        .background(Color.gray.opacity(0.1))
+                        .cornerRadius(8)
                     }
-                    .padding()
-                    .background(Color.gray.opacity(0.1))
-                    .cornerRadius(8)
-                }
-                
-                // Special Fn-Key Binder
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Custom 'Fn' Shortcut")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .foregroundColor(.secondary)
                     
-                    HStack {
+                    // Special Fn-Key Binder
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("CUSTOM 'FN' SHORTCUT")
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .foregroundColor(.secondary)
+                        
+                        HStack {
+                            Button(action: { 
+                                isListeningForFnKey.toggle()
+                                if isListeningForFnKey { fnKeyHint = "Press any key..." }
+                            }) {
+                                Text(isListeningForFnKey ? fnKeyHint : "Bind Fn + [Key]...")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(isListeningForFnKey ? .orange : localColor)
+                        }
+                        .padding()
+                        .background(localColor.opacity(0.05))
+                        .cornerRadius(8)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(isListeningForFnKey ? Color.orange : Color.clear, lineWidth: 2)
+                        )
+                    }
+                    
+                    // Suggested Binds (Bottom)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("SUGGESTED BINDS")
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .foregroundColor(.secondary)
+                        
                         Button(action: { 
-                            isListeningForFnKey.toggle()
-                            if isListeningForFnKey { fnKeyHint = "Press any key..." }
+                            controller.toggleShiftFnShortcut()
                         }) {
-                            Text(isListeningForFnKey ? fnKeyHint : "Bind Fn + [Key]...")
-                                .frame(maxWidth: .infinity)
+                            HStack {
+                                Text("Shift + Fn (Modifier Only)")
+                                Spacer()
+                                if controller.useShiftFnShortcut {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.green)
+                                }
+                            }
+                            .padding(.horizontal, 12)
+                            .frame(maxWidth: .infinity, minHeight: 36)
                         }
                         .buttonStyle(.bordered)
-                        .tint(isListeningForFnKey ? .orange : .blue)
+                        .tint(controller.useShiftFnShortcut ? .green : .primary)
                     }
-                    .padding()
-                    .background(Color.blue.opacity(0.05))
-                    .cornerRadius(8)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(isListeningForFnKey ? Color.orange : Color.clear, lineWidth: 2)
-                    )
                 }
             }
-            
-            Text("Note: Shift + Fn is a specialized modifier-only bind.")
-                .font(.caption2)
-                .foregroundColor(.secondary)
             
             Button("Done") {
                 NSApplication.shared.keyWindow?.close()
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
+            .tint(localColor)
         }
         .padding(30)
-        .frame(width: 400)
+        .frame(width: 400, height: 600)
         .background(KeyEventHandler(isListening: $isListeningForFnKey))
+        .onAppear {
+            self.localColor = controller.waveformColor
+        }
+        .onChange(of: localColor) { newColor in
+            controller.updateWaveformColor(newColor)
+        }
     }
 }
 
@@ -169,13 +206,13 @@ class HotkeySettingsWindow: NSWindow {
         }
         
         let window = HotkeySettingsWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 400, height: 500),
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 600),
             styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.center()
-        window.title = "Airakeet Hotkey"
+        window.title = "Hotkey & Appearance"
         window.contentView = NSHostingView(rootView: HotkeySettingsView(controller: controller))
         window.isReleasedWhenClosed = false
         window.makeKeyAndOrderFront(nil)

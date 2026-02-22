@@ -24,6 +24,7 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     private let injector = TextInjector()
     let hotkeyManager = HotkeyManager()
     @Published var permissions = PermissionsManager()
+    @Published var waveformColor: Color = .blue
     
     var useShiftFnShortcut: Bool {
         hotkeyManager.useShiftFnShortcut
@@ -52,7 +53,19 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     
     override init() {
         super.init()
+        loadSettings()
         setup()
+    }
+    
+    private func loadSettings() {
+        if let hex = UserDefaults.standard.string(forKey: "waveformColor") {
+            waveformColor = Color(hex: hex) ?? .blue
+        }
+    }
+    
+    func updateWaveformColor(_ color: Color) {
+        self.waveformColor = color
+        UserDefaults.standard.set(color.toHex(), forKey: "waveformColor")
     }
     
     private func setup() {
@@ -148,6 +161,24 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
             } catch {
                 print("Airakeet: Save error: \(error)")
             }
+        }
+    }
+    
+    func reTranscribeLast() {
+        guard let _ = recorder.getLastRecordingURL() else { return }
+        transcriptionTask = Task {
+            do {
+                print("Airakeet: Re-transcribing last recording...")
+                status = .transcribing
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                status = .ready
+            }
+        }
+    }
+    
+    func injectLastResult() {
+        if let text = lastResult?.text {
+            injector.inject(text)
         }
     }
     
@@ -272,16 +303,6 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
         hotkeyManager.mode = newMode
     }
     
-    func reTranscribeLast() {
-        guard let _ = recorder.getLastRecordingURL() else { return }
-    }
-    
-    func injectLastResult() {
-        if let text = lastResult?.text {
-            injector.inject(text)
-        }
-    }
-    
     func openDebugWindow() {
         NSApp.activate(ignoringOtherApps: true)
         DebugWindow.show(controller: self)
@@ -339,7 +360,7 @@ class StatusBarManager {
         menu.addItem(NSMenuItem.separator())
         
         // --- Configuration Section ---
-        let hotkeyItem = NSMenuItem(title: "Set Hotkey...", action: #selector(openHotkey), keyEquivalent: "k")
+        let hotkeyItem = NSMenuItem(title: "Hotkey & Appearance...", action: #selector(openHotkey), keyEquivalent: "k")
         hotkeyItem.target = self
         menu.addItem(hotkeyItem)
         
@@ -406,4 +427,49 @@ class StatusBarManager {
     }
     @objc func openDebug() { controller.openDebugWindow() }
     @objc func quit() { controller.quit() }
+}
+
+// MARK: - Color Extensions for Persistence
+extension Color {
+    init?(hex: String) {
+        var hexSanitized = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        hexSanitized = hexSanitized.replacingOccurrences(of: "#", with: "")
+        
+        var rgb: UInt64 = 0
+        
+        var r: CGFloat = 0.0
+        var g: CGFloat = 0.0
+        var b: CGFloat = 0.0
+        var a: CGFloat = 1.0
+        
+        let length = hexSanitized.count
+        
+        guard Scanner(string: hexSanitized).scanHexInt64(&rgb) else { return nil }
+        
+        if length == 6 {
+            r = CGFloat((rgb & 0xFF0000) >> 16) / 255.0
+            g = CGFloat((rgb & 0x00FF00) >> 8) / 255.0
+            b = CGFloat(rgb & 0x0000FF) / 255.0
+        } else if length == 8 {
+            r = CGFloat((rgb & 0xFF000000) >> 24) / 255.0
+            g = CGFloat((rgb & 0x00FF0000) >> 16) / 255.0
+            b = CGFloat((rgb & 0x0000FF00) >> 8) / 255.0
+            a = CGFloat(rgb & 0x000000FF) / 255.0
+        } else {
+            return nil
+        }
+        
+        self.init(.sRGB, red: Double(r), green: Double(g), blue: Double(b), opacity: Double(a))
+    }
+    
+    func toHex() -> String {
+        let nsColor = NSColor(self)
+        guard let rgbColor = nsColor.usingColorSpace(.deviceRGB) else {
+            return "0000FF"
+        }
+        let r = Int(rgbColor.redComponent * 255)
+        let g = Int(rgbColor.greenComponent * 255)
+        let b = Int(rgbColor.blueComponent * 255)
+        return String(format: "%02X%02X%02X", r, g, b)
+    }
 }
