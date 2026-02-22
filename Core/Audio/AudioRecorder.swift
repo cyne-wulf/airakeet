@@ -76,8 +76,9 @@ public final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBuffer
             lock.lock()
             defer { lock.unlock() }
             _samples = []
-            // Reserve capacity for 1 hour of audio (approx 690MB of RAM for raw floats)
-            _samples.reserveCapacity(48000 * 3600)
+            // Start with 1 minute of capacity (~11MB). 
+            // It will grow automatically if you speak longer.
+            _samples.reserveCapacity(48000 * 60)
             _inputFormat = nil
         }
     }
