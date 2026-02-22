@@ -67,16 +67,18 @@ public final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBuffer
             lock.unlock()
             
             if count > 0, let d = d {
-                // Better RMS calculation for visualization
-                var sum: Float = 0
-                let step = max(1, count / 100)
-                var processed = 0
-                for i in stride(from: 0, to: count, by: step) {
-                    sum += newSamples[i] * newSamples[i]
-                    processed += 1
+                // Peak power calculation for reactivity
+                var maxVal: Float = 0
+                // Check every sample for the true peak
+                for i in 0..<count {
+                    let absVal = abs(newSamples[i])
+                    if absVal > maxVal { maxVal = absVal }
                 }
-                let rms = sqrt(sum / Float(processed))
-                Task { @MainActor in d.audioRecorderDidUpdatePower(rms) }
+                
+                // Print to debug (comment out later)
+                // print("Airakeet Power: \(maxVal)")
+                
+                Task { @MainActor in d.audioRecorderDidUpdatePower(maxVal) }
             }
         }
         
