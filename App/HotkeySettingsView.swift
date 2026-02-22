@@ -60,14 +60,28 @@ struct HotkeySettingsView: View {
                             .foregroundColor(.secondary)
                         
                         HStack {
-                            KeyboardShortcuts.Recorder(for: .toggleAirakeet)
-                                .fixedSize()
-                            Spacer()
-                            Button("Reset Default") {
-                                KeyboardShortcuts.setShortcut(KeyboardShortcuts.Shortcut(.backtick, modifiers: [.function]), for: .toggleAirakeet)
+                            if controller.useShiftFnShortcut {
+                                HStack {
+                                    Image(systemName: "globe")
+                                    Image(systemName: "shift.fill")
+                                    Text("Fn + Shift (Active)")
+                                }
+                                .padding(6)
+                                .background(Color.green.opacity(0.1))
+                                .cornerRadius(6)
+                            } else {
+                                KeyboardShortcuts.Recorder(for: .toggleAirakeet)
+                                    .fixedSize()
                             }
-                            .buttonStyle(.link)
-                            .font(.caption)
+                            
+                            Spacer()
+                            if !controller.useShiftFnShortcut {
+                                Button("Reset Default") {
+                                    KeyboardShortcuts.setShortcut(KeyboardShortcuts.Shortcut(.backtick, modifiers: [.function]), for: .toggleAirakeet)
+                                }
+                                .buttonStyle(.link)
+                                .font(.caption)
+                            }
                         }
                         .padding()
                         .background(Color.gray.opacity(0.1))
