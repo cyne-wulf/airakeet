@@ -4,6 +4,7 @@ import FluidAudio
 import HotKey
 import AVFoundation
 import KeyboardShortcuts
+import Combine
 
 @main
 struct AirakeetApp: App {
@@ -16,18 +17,14 @@ struct AirakeetApp: App {
     }
 }
 
-private final class MonitorWrapper: @unchecked Sendable {
-    var monitor: Any?
-}
-
 @MainActor
 class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngineDelegate, AudioRecorderDelegate {
-    private var statusBarManager: StatusBarManager?
+    var statusBarManager: StatusBarManager?
     private let asrEngine = ASREngine()
     private let recorder = AudioRecorder()
     private let injector = TextInjector()
     private let hotkeyManager = HotkeyManager()
-    private let permissions = PermissionsManager()
+    @Published var permissions = PermissionsManager()
     
     @Published var lastResult: TranscriptionResult?
     @Published var status: ASREngineStatus = .idle
@@ -41,7 +38,7 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     private let idleTimeout: TimeInterval = 300 // 5 minutes
     
     private var transcriptionTask: Task<Void, Never>?
-    private let escapeMonitorWrapper = MonitorWrapper()
+    private var cancellables = Set<AnyCancellable>()
     
     override init() {
         super.init()
@@ -69,40 +66,26 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
                 try await asrEngine.ensureInitialized()
                 resetIdleTimer()
             } catch {
-                print("Failed to initialize ASR: \(error)")
+                print("Airakeet: Failed to initialize ASR: \(error)")
             }
         }
         
         statusBarManager = StatusBarManager(controller: self)
-        setupEscapeMonitor()
-    }
-    
-    private func setupEscapeMonitor() {
-        // Monitor for Escape key (virtual key code 53)
-        escapeMonitorWrapper.monitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self = self else { return }
-            if event.keyCode == 53 { // Escape
-                Task { @MainActor in
-                    if self.isRecording || self.status == .transcribing {
-                        print("Escape pressed: Cancelling...")
-                        await self.cancel()
-                    }
-                }
+        
+        // Reactive Menu Refresh
+        permissions.objectWillChange
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.statusBarManager?.setupMenu()
+            }
+            .store(in: &cancellables)
+            
+        // Frequent polling for permissions (1s) to catch system toggle
+        Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.permissions.checkAll()
             }
         }
-    }
-    
-    func cancel() async {
-        if isRecording {
-            _ = try? await recorder.stopRecording()
-        }
-        
-        transcriptionTask?.cancel()
-        transcriptionTask = nil
-        
-        OverlayWindow.hide()
-        resetIdleTimer()
-        print("Operation cancelled by user.")
     }
     
     func refreshDevices() {
@@ -154,6 +137,10 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
         stopRecording()
     }
     
+    func isCurrentlyRecording() -> Bool {
+        return self.isRecording
+    }
+    
     // MARK: - ASREngineDelegate
     func asrEngineDidUpdateStatus(_ status: ASREngineStatus) {
         self.status = status
@@ -167,6 +154,13 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     // MARK: - Actions
     func startRecording() {
         guard !isRecording else { return }
+        
+        // Safety Catch: Check permissions first
+        if !permissions.hasMicrophonePermission || !permissions.hasAccessibilityPermission {
+            openDebugWindow()
+            return
+        }
+        
         idleTimer?.invalidate()
         
         Task {
@@ -175,7 +169,7 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
                 try await asrEngine.ensureInitialized()
                 try recorder.startRecording()
             } catch {
-                print("Failed to start recording: \(error)")
+                print("Airakeet: Failed to start recording: \(error)")
                 resetIdleTimer()
                 OverlayWindow.hide()
             }
@@ -196,20 +190,12 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
             do {
                 let (samples, duration) = try await recorder.stopRecording()
                 
-                // Check for cancellation before ASR
-                if Task.isCancelled { return }
-                
                 let result = try await asrEngine.transcribe(samples: samples, audioDuration: duration)
-                
-                // Check for cancellation after ASR
-                if Task.isCancelled { return }
                 
                 self.lastResult = result
                 injector.inject(result.text)
             } catch {
-                if !Task.isCancelled {
-                    print("Transcription error: \(error)")
-                }
+                print("Airakeet: Transcription error: \(error)")
                 OverlayWindow.hide()
             }
         }
@@ -222,9 +208,6 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     
     func reTranscribeLast() {
         guard let _ = recorder.getLastRecordingURL() else { return }
-        Task {
-            // Re-transcription logic if needed
-        }
     }
     
     func injectLastResult() {
@@ -239,12 +222,6 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     
     func quit() {
         NSApplication.shared.terminate(nil)
-    }
-    
-    deinit {
-        if let monitor = escapeMonitorWrapper.monitor {
-            NSEvent.removeMonitor(monitor)
-        }
     }
 }
 
@@ -267,14 +244,37 @@ class StatusBarManager {
     func setupMenu() {
         let menu = NSMenu()
         
-        menu.addItem(NSMenuItem(title: "Airakeet", action: nil, keyEquivalent: ""))
+        // Title
+        let titleItem = NSMenuItem(title: "Airakeet", action: nil, keyEquivalent: "")
+        titleItem.isEnabled = false
+        menu.addItem(titleItem)
+        
         menu.addItem(NSMenuItem.separator())
         
+        // --- Permissions Section ---
+        let micOk = controller.permissions.hasMicrophonePermission
+        let accOk = controller.permissions.hasAccessibilityPermission
+        
+        let micStatusItem = NSMenuItem(title: micOk ? "● Microphone: Granted" : "○ Microphone: Missing", action: nil, keyEquivalent: "")
+        micStatusItem.isEnabled = false
+        menu.addItem(micStatusItem)
+        
+        let accStatusItem = NSMenuItem(title: accOk ? "● Accessibility: Granted" : "○ Accessibility: Missing", action: nil, keyEquivalent: "")
+        accStatusItem.isEnabled = false
+        menu.addItem(accStatusItem)
+        
+        if !micOk || !accOk {
+            let grantItem = NSMenuItem(title: "Grant Permissions...", action: #selector(openDebug), keyEquivalent: "")
+            grantItem.target = self
+            menu.addItem(grantItem)
+        }
+        
+        menu.addItem(NSMenuItem.separator())
+        
+        // --- Configuration Section ---
         let hotkeyItem = NSMenuItem(title: "Set Hotkey...", action: #selector(openHotkey), keyEquivalent: "k")
         hotkeyItem.target = self
         menu.addItem(hotkeyItem)
-        
-        menu.addItem(NSMenuItem.separator())
         
         let modeMenu = NSMenu()
         RecordingMode.allCases.forEach { mode in
@@ -292,7 +292,7 @@ class StatusBarManager {
         menu.addItem(modeItem)
         
         // Microphone Selector
-        let micMenu = NSMenu()
+        let micSelectorMenu = NSMenu()
         controller.refreshDevices()
         controller.availableDevices.forEach { device in
             let item = NSMenuItem(title: device.localizedName, action: #selector(changeDevice(_:)), keyEquivalent: "")
@@ -301,19 +301,20 @@ class StatusBarManager {
             if device.uniqueID == controller.selectedDeviceID {
                 item.state = .on
             }
-            micMenu.addItem(item)
+            micSelectorMenu.addItem(item)
         }
         
         if controller.availableDevices.isEmpty {
-            micMenu.addItem(NSMenuItem(title: "No devices found", action: nil, keyEquivalent: ""))
+            micSelectorMenu.addItem(NSMenuItem(title: "No devices found", action: nil, keyEquivalent: ""))
         }
         
-        let micItem = NSMenuItem(title: "Microphone", action: nil, keyEquivalent: "")
-        micItem.submenu = micMenu
-        menu.addItem(micItem)
+        let micSelectorItem = NSMenuItem(title: "Input Source", action: nil, keyEquivalent: "")
+        micSelectorItem.submenu = micSelectorMenu
+        menu.addItem(micSelectorItem)
         
         menu.addItem(NSMenuItem.separator())
         
+        // --- Debug & App Section ---
         let debugItem = NSMenuItem(title: "Open Test/Debug...", action: #selector(openDebug), keyEquivalent: "d")
         debugItem.target = self
         menu.addItem(debugItem)
