@@ -1,34 +1,43 @@
-# Airakeet (In Progress)
+# Airakeet 🦜
 
-An open-source, local-first dictation app for macOS built strictly with NVIDIA Airakeet ASR. No Whisper fallback.
+**The uncompromising transcription tool for base-model Apple Silicon.**
 
-## 🚧 Status: Alpha/In-Development
-This project is currently a functional prototype being built autonomously. 
+Airakeet is an open-source, local-first dictation app designed specifically for the **8GB MacBook Air**. It brings the power of NVIDIA's Parakeet ASR model to your Mac without melting your RAM or draining your battery.
 
-### Recent Progress:
-- [x] **High-Performance ASR:** NVIDIA Airakeet TDT 0.6B V2 running locally on Apple Silicon via CoreML (0.11s for 5s audio).
-- [x] **Stable Audio Pipeline:** Switched to `AVCaptureSession` to prevent real-time thread crashes found in `AVAudioEngine`.
-- [x] **Memory Optimization:** Automatic model unloading after 5 minutes of idle time (optimized for 8GB RAM).
-- [x] **Superwhisper-like UX:** Menubar app with global hotkeys and direct text injection.
+## Why Airakeet?
+I built this because I was tired of "lightweight" dictation apps that still consumed 2-3GB of RAM, choking my base model M2 Air. I wanted the accuracy of modern large models (like Whisper or Parakeet) but with the efficiency of a native tool.
 
-### Known Technical Challenges:
-- **macOS Permissions:** The app currently hits a `Trace/BPT trap: 5` when run from the command line because `AVCaptureSession` requires a proper macOS App Bundle (`.app`) with a valid `Info.plist` and `NSMicrophoneUsageDescription`. 
-- **Recommendation:** Open `Package.swift` in Xcode to run the app as a bundled process.
+**Airakeet is different:**
+- **Zero-Overhead Idle:** Unloads the 800MB model from RAM after 5 minutes of inactivity.
+- **Smart Memory Management:** Uses an "extract-and-clear" buffer strategy to prevent memory spikes during long dictations.
+- **ANE Optimized:** Runs exclusively on the Apple Neural Engine to keep your CPU free for other tasks.
+- **Strictly Essential:** No bloat, no analytics, no "AI Assistant" features—just rock-solid dictation.
 
 ## Features
-- **Strictly Local:** Powered by NVIDIA Airakeet TDT 0.6B V2 via CoreML.
+- **Strictly Local:** Powered by NVIDIA Parakeet TDT 0.6B V2 via CoreML.
 - **Superwhisper-like UX:** Menubar-only app with global hotkeys.
 - **Recording Modes:**
-  - **Hold-to-talk:** Press and hold `Option + Command + R` (Default)
-  - **Toggle dictation:** Press to start, press to stop.
+  - **Toggle dictation:** Tap to start, tap to stop (Default).
+  - **Hold-to-talk:** Press and hold to record.
 - **Direct Injection:** Transcribes audio and injects text via Clipboard + CMD+V.
-- **Fast:** ~45x real-time factor on Apple M2.
+- **Fast:** ~45x real-time factor on Apple M2 (0.11s for 5s of audio).
+
+## Design Decisions
+### Why no "Escape to Cancel"?
+To keep Airakeet's footprint as small as possible on 8GB machines, we opted not to include global keyboard event listeners beyond the primary hotkey. This minimizes background CPU usage and keeps the app's security profile strictly limited to the essential "Dictation" task.
+
+### Memory Management
+Airakeet uses an "extract-and-clear" strategy for audio data. Raw samples are moved out of active memory immediately when recording stops, and the ~800MB ASR model is automatically unloaded after 5 minutes of inactivity.
 
 ## Installation & Build
+### Download
+Grab the latest release from the [Releases Page](https://github.com/cyne-wulf/airakeet/releases).
+
+### Build from Source
 1. Clone the repository.
-2. Open `Package.swift` in Xcode 16+.
-3. Build and run the `Airakeet` target.
-4. On first run, it will download the ~800MB model from HuggingFace.
+2. Build the app bundle: `./package_app.sh`
+3. Drag `Airakeet.app` into **System Settings > Privacy & Security > Accessibility**.
+4. Launch `Airakeet.app`.
 
 ## License
 MIT (App) / CC-BY-4.0 (Model)
