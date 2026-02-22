@@ -39,6 +39,8 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     
     private var transcriptionTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
+    private var audioPlayer: AVAudioPlayer?
+    @Published var hasLastRecording: Bool = false
     
     override init() {
         super.init()
@@ -48,6 +50,9 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     private func setup() {
         hotkeyManager.delegate = self
         recorder.delegate = self
+        
+        // Check if last recording exists on disk
+        updateHasLastRecording()
         
         // Load initial devices
         self.availableDevices = AudioRecorder.availableDevices()
@@ -85,6 +90,32 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
                 self?.permissions.checkAll()
             }
         }
+    }
+    
+    func updateHasLastRecording() {
+        if let url = recorder.getLastRecordingURL() {
+            hasLastRecording = FileManager.default.fileExists(atPath: url.path)
+        } else {
+            hasLastRecording = false
+        }
+    }
+    
+    func playLastRecording() {
+        guard let url = recorder.getLastRecordingURL() else { return }
+        do {
+            audioPlayer = try AVAudioPlayer(contentsOf: url)
+            audioPlayer?.play()
+            print("Airakeet: Playing last recording...")
+        } catch {
+            print("Airakeet: Playback error: \(error)")
+        }
+    }
+    
+    func deleteLastRecording() {
+        guard let url = recorder.getLastRecordingURL() else { return }
+        try? FileManager.default.removeItem(at: url)
+        updateHasLastRecording()
+        print("Airakeet: Last recording deleted.")
     }
     
     func refreshDevices() {
@@ -186,6 +217,7 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
             
             do {
                 let (samples, duration) = try await recorder.stopRecording()
+                updateHasLastRecording()
                 if Task.isCancelled { return }
                 
                 let result = try await asrEngine.transcribe(samples: samples, audioDuration: duration)

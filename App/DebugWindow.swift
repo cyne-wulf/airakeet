@@ -112,6 +112,33 @@ struct DebugWindowView: View {
                 }
                 .font(.caption)
             }
+            
+            if controller.hasLastRecording {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("LAST RECORDING (DISK CACHE)")
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.secondary)
+                    
+                    HStack {
+                        Button(action: { controller.playLastRecording() }) {
+                            HStack {
+                                Image(systemName: "play.circle.fill")
+                                Text("Play Audio")
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        
+                        Button(action: { controller.deleteLastRecording() }) {
+                            Image(systemName: "trash")
+                                .foregroundColor(.red)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.leading, 8)
+                    }
+                }
+                .padding(.top, 8)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
