@@ -25,6 +25,14 @@ mkdir -p "$APP_NAME.app/Contents/Resources"
 # Copy binary
 cp "$BINARY_PATH" "$APP_NAME.app/Contents/MacOS/$APP_NAME"
 
+# Copy Icon if it exists
+if [ -f "Airakeet.icns" ]; then
+    cp "Airakeet.icns" "$APP_NAME.app/Contents/Resources/"
+    ICON_ENTRY="<key>CFBundleIconFile</key><string>Airakeet</string>"
+else
+    ICON_ENTRY=""
+fi
+
 # Create Info.plist
 cat > "$APP_NAME.app/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -47,6 +55,7 @@ cat > "$APP_NAME.app/Contents/Info.plist" <<EOF
     <string>Airakeet needs microphone access to dictate text.</string>
     <key>NSHighResolutionCapable</key>
     <true/>
+    $ICON_ENTRY
 </dict>
 </plist>
 EOF
