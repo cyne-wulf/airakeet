@@ -18,18 +18,30 @@ struct HotkeySettingsView: View {
                 .font(.subheadline)
                 .foregroundColor(.secondary)
             
-            HStack {
-                Text("Shortcut:")
-                KeyboardShortcuts.Recorder(for: .toggleAirakeet)
-                    .fixedSize()
+            VStack(spacing: 12) {
+                HStack {
+                    Text("Shortcut:")
+                    KeyboardShortcuts.Recorder(for: .toggleAirakeet)
+                        .fixedSize()
+                }
+                .padding()
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(8)
+                
+                Button("Reset to Default (Fn + `)") {
+                    KeyboardShortcuts.setShortcut(KeyboardShortcuts.Shortcut(.backtick, modifiers: [.function]), for: .toggleAirakeet)
+                }
+                .buttonStyle(.link)
+                .font(.caption)
             }
-            .padding()
-            .background(Color.gray.opacity(0.1))
-            .cornerRadius(8)
             
-            Text("Tip: Try using 'Fn + `' or 'Option + Space'.")
+            Text("Tip: Try using 'Option + Space' or 'Cmd + Shift + L'.")
                 .font(.caption)
                 .foregroundColor(.secondary)
+            
+            Text("Note: Some keys like 'Fn' can only be set via the Reset button.")
+                .font(.caption2)
+                .foregroundColor(.secondary.opacity(0.8))
             
             Button("Done") {
                 NSApplication.shared.keyWindow?.close()
@@ -47,13 +59,14 @@ class HotkeySettingsWindow: NSWindow {
     
     static func show() {
         NSApp.activate(ignoringOtherApps: true)
+        
         if let shared = shared {
             shared.makeKeyAndOrderFront(nil)
             return
         }
         
         let window = HotkeySettingsWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 400, height: 250),
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
             styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
