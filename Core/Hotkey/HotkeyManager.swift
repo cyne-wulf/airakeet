@@ -12,6 +12,7 @@ public enum RecordingMode: String, CaseIterable, Sendable {
 public protocol HotkeyManagerDelegate: AnyObject {
     func hotkeyDidStart()
     func hotkeyDidStop()
+    func isCurrentlyRecording() -> Bool
 }
 
 @MainActor
@@ -25,7 +26,9 @@ public final class HotkeyManager {
         }
     }
     
-    private var isRecording = false
+    // To prevent double-firing
+    private var lastEventTime: Date = Date.distantPast
+    private let debounceInterval: TimeInterval = 0.3
     
     public init() {
         setupHandlers()
@@ -35,17 +38,22 @@ public final class HotkeyManager {
         KeyboardShortcuts.onKeyDown(for: .toggleAirakeet) { [weak self] in
             guard let self = self else { return }
             
+            let now = Date()
+            if now.timeIntervalSince(self.lastEventTime) < self.debounceInterval {
+                return
+            }
+            self.lastEventTime = now
+            
+            let currentlyRecording = self.delegate?.isCurrentlyRecording() ?? false
+            
             if self.mode == .holdToTalk {
-                if !self.isRecording {
-                    self.isRecording = true
+                if !currentlyRecording {
                     self.delegate?.hotkeyDidStart()
                 }
             } else { // Toggle mode
-                if self.isRecording {
-                    self.isRecording = false
+                if currentlyRecording {
                     self.delegate?.hotkeyDidStop()
                 } else {
-                    self.isRecording = true
                     self.delegate?.hotkeyDidStart()
                 }
             }
@@ -55,8 +63,7 @@ public final class HotkeyManager {
             guard let self = self else { return }
             
             if self.mode == .holdToTalk {
-                if self.isRecording {
-                    self.isRecording = false
+                if self.delegate?.isCurrentlyRecording() ?? false {
                     self.delegate?.hotkeyDidStop()
                 }
             }

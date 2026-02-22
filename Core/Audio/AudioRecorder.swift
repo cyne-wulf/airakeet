@@ -84,8 +84,6 @@ public final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBuffer
             lock.lock()
             defer { lock.unlock() }
             _samples = []
-            // Start with 1 minute of capacity (~11MB). 
-            // It will grow automatically if you speak longer.
             _samples.reserveCapacity(48000 * 60)
             _inputFormat = nil
         }
@@ -93,12 +91,12 @@ public final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBuffer
     private let internalState = InternalState()
     private var lastRecordingURL: URL?
 
-    public var selectedDeviceID: String?
-
     public override init() {
         super.init()
     }
     
+    public var selectedDeviceID: String?
+
     public static func availableDevices() -> [AVCaptureDevice] {
         let discoverySession = AVCaptureDevice.DiscoverySession(
             deviceTypes: [.microphone],
@@ -128,6 +126,15 @@ public final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBuffer
         }
         
         let output = AVCaptureAudioDataOutput()
+        
+        // Explicitly request Float32 Non-Interleaved PCM to ensure compatibility
+        output.audioSettings = [
+            AVFormatIDKey: kAudioFormatLinearPCM,
+            AVLinearPCMBitDepthKey: 32,
+            AVLinearPCMIsFloatKey: true,
+            AVLinearPCMIsNonInterleaved: true
+        ]
+        
         let queue = DispatchQueue(label: "com.airakeet.audio.capture", qos: .userInteractive)
         output.setSampleBufferDelegate(self, queue: queue)
         
@@ -191,36 +198,47 @@ public final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBuffer
     public func stopRecording() async throws -> (samples: [Float], duration: TimeInterval) {
         guard isRecording else { return ([], 0) }
         
+        isRecording = false
+        
         // stopRunning() should be on background thread
         let sessionToStop = captureSession
         DispatchQueue.global(qos: .userInitiated).async {
             sessionToStop?.stopRunning()
         }
         
-        isRecording = false
-        
         let rawSamples = internalState.samples
         let format = internalState.inputFormat
         
-        if rawSamples.isEmpty || format == nil { return ([], 0) }
+        if rawSamples.isEmpty {
+            logger.warning("No samples captured.")
+            return ([], 0)
+        }
+        
+        guard let inputFormat = format else {
+            logger.error("Input format never captured.")
+            return ([], 0)
+        }
         
         logger.info("Processing \(rawSamples.count) samples from AVCapture...")
         
-        let inputFormat = format!
+        // 1. Create a buffer from the raw samples
         guard let inputBuffer = AVAudioPCMBuffer(pcmFormat: inputFormat, frameCapacity: AVAudioFrameCount(rawSamples.count)) else {
+            logger.error("Failed to create input buffer.")
             return ([], 0)
         }
         inputBuffer.frameLength = AVAudioFrameCount(rawSamples.count)
         
         for channel in 0..<Int(inputFormat.channelCount) {
-            let dst = inputBuffer.floatChannelData![channel]
-            rawSamples.withUnsafeBufferPointer { src in
-                if let base = src.baseAddress {
-                    memcpy(dst, base, rawSamples.count * MemoryLayout<Float>.size)
+            if let dst = inputBuffer.floatChannelData?[channel] {
+                rawSamples.withUnsafeBufferPointer { src in
+                    if let base = src.baseAddress {
+                        memcpy(dst, base, rawSamples.count * MemoryLayout<Float>.size)
+                    }
                 }
             }
         }
         
+        // 2. Convert to 16kHz mono
         let targetFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 16000, channels: 1, interleaved: false)!
         guard let converter = AVAudioConverter(from: inputFormat, to: targetFormat) else {
             throw NSError(domain: "AudioRecorder", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to create converter"])
@@ -229,7 +247,7 @@ public final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBuffer
         let ratio = targetFormat.sampleRate / inputFormat.sampleRate
         let targetCapacity = AVAudioFrameCount(Double(inputBuffer.frameLength) * ratio) + 100
         guard let outputBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: targetCapacity) else {
-            throw NSError(domain: "AudioRecorder", code: 3, userInfo: [NSLocalizedDescriptionKey: "Failed to create output buffer"])
+            return ([], 0)
         }
         
         let convState = ConversionState()
@@ -247,7 +265,12 @@ public final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBuffer
              throw NSError(domain: "AudioRecorder", code: 4, userInfo: [NSLocalizedDescriptionKey: "Conversion failed"])
         }
         
-        let finalSamples = Array(UnsafeBufferPointer(start: outputBuffer.floatChannelData![0], count: Int(outputBuffer.frameLength)))
+        guard let finalPtr = outputBuffer.floatChannelData?[0] else {
+            logger.error("Output buffer has no channel data.")
+            return ([], 0)
+        }
+        
+        let finalSamples = Array(UnsafeBufferPointer(start: finalPtr, count: Int(outputBuffer.frameLength)))
         let duration = Double(finalSamples.count) / 16000.0
         
         saveLastRecording(outputBuffer)
