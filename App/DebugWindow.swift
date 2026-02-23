@@ -97,8 +97,22 @@ struct DebugWindowView: View {
     
     var resultsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Last Transcript:")
-                .fontWeight(.bold)
+            HStack {
+                Text("Last Transcript:")
+                    .fontWeight(.bold)
+                Spacer()
+                if controller.lastResult != nil {
+                    Button(action: { controller.copyLastTranscript() }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "doc.on.doc")
+                            Text("Copy")
+                        }
+                        .font(.caption2)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(.blue)
+                }
+            }
             
             TextEditor(text: .constant(controller.lastResult?.text ?? ""))
                 .font(.system(.body, design: .monospaced))

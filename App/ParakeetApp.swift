@@ -203,6 +203,14 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
         }
     }
     
+    func copyLastTranscript() {
+        guard let text = lastResult?.text else { return }
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+        print("Airakeet: Last transcript copied to clipboard.")
+    }
+    
     func refreshDevices() {
         self.availableDevices = AudioRecorder.availableDevices()
     }
@@ -436,9 +444,17 @@ class StatusBarManager {
         quitItem.target = self
         menu.addItem(quitItem)
         
+        menu.addItem(NSMenuItem.separator())
+        
+        let copyItem = NSMenuItem(title: "Copy Last Transcript", action: #selector(copyLast), keyEquivalent: "c")
+        copyItem.target = self
+        copyItem.isEnabled = controller.lastResult != nil
+        menu.addItem(copyItem)
+        
         statusBarItem.menu = menu
     }
     
+    @objc func copyLast() { controller.copyLastTranscript() }
     @objc func toggleLaunch() { controller.toggleStartAtLogin() }
     @objc func openHotkey() { controller.openHotkeySettings() }
     @objc func changeMode(_ sender: NSMenuItem) {
