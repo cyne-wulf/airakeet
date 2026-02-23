@@ -32,7 +32,6 @@ On 8GB RAM machines, memory pressure is the primary constraint.
 ### Phase 2: Refinement
 - [ ] **Audio VAD (Voice Activity Detection):** Implement lightweight silence trimming to avoid transcribing dead air.
 - [ ] **Onboarding UX:** Add a "Setup Wizard" that guides the user through Microphone and Accessibility permissions on first launch.
-- [ ] **Start at Login:** Add a helper to launch the app automatically on system boot.
 
 ### Phase 3: Advanced Features
 - [ ] **Formatting Engine:** Add basic post-processing (capitalization, punctuation refinement) using a lightweight local rule engine.
