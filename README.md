@@ -31,8 +31,9 @@ To keep Airakeet's footprint as small as possible on 8GB machines, I opted not t
 Airakeet uses an "extract-and-clear" strategy for audio data. Raw samples are moved out of active memory immediately when recording stops, and the ~800MB ASR model is automatically unloaded after 5 minutes of inactivity.
 
 ## Installation & Build
-### Download
-Grab the latest release from the [Releases Page](https://github.com/cyne-wulf/airakeet/releases).
+### Download  
+1. Grab the latest release from the [Releases Page](https://github.com/cyne-wulf/airakeet/releases).
+2. Drag the .app file into your Applications folder
 
 ### Build from Source
 1. Clone the repository.
