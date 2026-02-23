@@ -2,7 +2,7 @@
 
 This roadmap outlines the plan for supporting "High-Tier" hardware (Apple Silicon with 16GB+ RAM) while maintaining the gold-standard optimization for base-model (8GB) devices.
 
-> **NOTE:** Implementation of the High-Tier features is paused until the **M5 32GB MacBook Air** is available for hardware validation.
+> **NOTE:** Implementation of the High-Tier features is paused until I upgrade to an **M5 32GB MacBook Air**.
 
 ---
 
