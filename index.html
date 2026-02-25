@@ -158,44 +158,47 @@
           </div>
         </article>
       </div>
-      <div class="model-compare">
+      <article class="model-card model-compare">
         <h3>Parakeet vs Local Whisper (both running on-device)</h3>
-        <div class="compare-table">
-          <div class="compare-row">
-            <p class="label">Latency target</p>
-            <div>
-              <p class="compare-title">Parakeet</p>
-              <p>Optimized for low-latency partials so you see text mid-sentence.</p>
-            </div>
-            <div>
-              <p class="compare-title">Local Whisper</p>
-              <p>Batch-first decoding introduces a pause before the first characters appear.</p>
-            </div>
-          </div>
-          <div class="compare-row">
-            <p class="label">Hardware sweet spot</p>
-            <div>
-              <p class="compare-title">Parakeet</p>
-              <p>Runs comfortably on the Apple Neural Engine with 8GB RAM.</p>
-            </div>
-            <div>
-              <p class="compare-title">Local Whisper</p>
-              <p>Prefers discrete GPU or 16GB+ unified memory to stay smooth.</p>
-            </div>
-          </div>
-          <div class="compare-row">
-            <p class="label">Streaming feel</p>
-            <div>
-              <p class="compare-title">Parakeet</p>
-              <p>Designed for incremental injection with ANE offload.</p>
-            </div>
-            <div>
-              <p class="compare-title">Local Whisper</p>
-              <p>Often buffers a full sentence before emitting, so text arrives in bursts.</p>
-            </div>
-          </div>
-        </div>
-      </div>
+        <table class="compare-table" aria-label="Parakeet versus Local Whisper feature comparison">
+          <thead>
+            <tr>
+              <th scope="col">Attribute</th>
+              <th scope="col">Parakeet</th>
+              <th scope="col">Local Whisper</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Latency target</th>
+              <td>
+                Optimized for low-latency partials so you see text mid-sentence.
+              </td>
+              <td>
+                Batch-first decoding introduces a pause before the first characters appear.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Hardware sweet spot</th>
+              <td>
+                Runs comfortably on the Apple Neural Engine with 8GB RAM.
+              </td>
+              <td>
+                Prefers discrete GPU or 16GB+ unified memory to stay smooth.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Streaming feel</th>
+              <td>
+                Designed for incremental injection with ANE offload.
+              </td>
+              <td>
+                Often buffers a full sentence before emitting, so text arrives in bursts.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </article>
     </section>
 
     <section class="section" id="roadmap">
