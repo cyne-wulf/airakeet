@@ -1,6 +1,7 @@
 import FluidAudio
 import Foundation
 import OSLog
+import Synchronization
 
 public struct TranscriptionMetrics: Sendable {
     public let audioDuration: TimeInterval
@@ -20,6 +21,7 @@ public struct TranscriptionResult: Sendable {
 @MainActor
 public protocol ASREngineDelegate: AnyObject, Sendable {
     func asrEngineDidUpdateStatus(_ status: ASREngineStatus)
+    func asrEngineDidUpdateProgress(_ progress: Double)
 }
 
 public enum ASREngineStatus: String, Sendable {
@@ -60,11 +62,21 @@ public final class ASREngine: Sendable {
     
     public func ensureInitialized() async throws {
         if await managerContainer.isInitialized() { return }
-        
+        try await loadModel()
+    }
+    
+    public func loadModel() async throws {
         await updateStatus(.loading)
+        await updateProgress(0.0)
+        
         do {
             logger.info("Downloading/Loading Airakeet models (v2)...")
+            
+            // Note: FluidAudio doesn't give us granular progress for download yet,
+            // but we can simulate steps: 1. Download, 2. Initialize
+            await updateProgress(0.1)
             let models = try await AsrModels.downloadAndLoad(version: .v2)
+            await updateProgress(0.8)
             
             let manager = AsrManager(config: .default)
             try await manager.initialize(models: models)
@@ -72,12 +84,24 @@ public final class ASREngine: Sendable {
             let wrapper = AsrManagerWrapper(manager: manager)
             await managerContainer.initialize(with: wrapper)
             await updateStatus(.ready)
+            await updateProgress(1.0)
             logger.info("ASREngine ready.")
         } catch {
             await updateStatus(.error)
             logger.error("Failed to initialize ASREngine: \(error.localizedDescription)")
             throw error
         }
+    }
+    
+    public func deleteModelCache() async throws {
+        await managerContainer.unload()
+        let cacheDir = AsrModels.defaultCacheDirectory(for: .v2)
+        if FileManager.default.fileExists(atPath: cacheDir.path) {
+            try FileManager.default.removeItem(at: cacheDir)
+            logger.info("Airakeet: Model cache deleted at \(cacheDir.path)")
+        }
+        await updateStatus(.idle)
+        await updateProgress(0.0)
     }
     
     public func transcribe(samples: [Float], audioDuration: TimeInterval) async throws -> TranscriptionResult {
@@ -116,6 +140,14 @@ public final class ASREngine: Sendable {
         if let d = await state.delegate {
             await MainActor.run {
                 d.asrEngineDidUpdateStatus(status)
+            }
+        }
+    }
+    
+    private func updateProgress(_ progress: Double) async {
+        if let d = await state.delegate {
+            await MainActor.run {
+                d.asrEngineDidUpdateProgress(progress)
             }
         }
     }

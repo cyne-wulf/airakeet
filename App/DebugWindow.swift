@@ -10,17 +10,18 @@ struct DebugWindowView: View {
             statusSection
             controlsSection
             resultsSection
+            modelManagementSection
             permissionsSection
         }
         .padding()
-        .frame(width: 400, height: 600)
+        .frame(width: 400, height: 750)
     }
     
     var headerSection: some View {
         HStack {
             Image(systemName: "waveform.circle.fill")
                 .font(.largeTitle)
-                .foregroundColor(.blue)
+                .foregroundColor(controller.waveformColor)
             Text("Airakeet Debug")
                 .font(.headline)
             Spacer()
@@ -28,13 +29,24 @@ struct DebugWindowView: View {
     }
     
     var statusSection: some View {
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("Status:")
                     .fontWeight(.bold)
                 Text(controller.status.rawValue)
                     .foregroundColor(controller.status == .error ? .red : .primary)
             }
+            
+            if controller.status == .loading {
+                VStack(alignment: .leading, spacing: 4) {
+                    ProgressView(value: controller.loadProgress, total: 1.0)
+                        .progressViewStyle(.linear)
+                    Text("\(Int(controller.loadProgress * 100))%")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+            
             if controller.isRecording {
                 HStack {
                     Text("Recording...")
@@ -71,7 +83,7 @@ struct DebugWindowView: View {
                     .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(controller.isRecording)
+                .disabled(controller.isRecording || controller.status == .loading)
             }
             
             HStack {
@@ -80,7 +92,7 @@ struct DebugWindowView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
-                .disabled(controller.lastResult == nil || controller.isRecording)
+                .disabled(controller.lastResult == nil || controller.isRecording || controller.status == .loading)
                 
                 Button(action: { controller.injectLastResult() }) {
                     HStack {
@@ -90,7 +102,7 @@ struct DebugWindowView: View {
                     .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
-                .disabled(controller.lastResult == nil || controller.isRecording)
+                .disabled(controller.lastResult == nil || controller.isRecording || controller.status == .loading)
             }
         }
     }
@@ -116,7 +128,7 @@ struct DebugWindowView: View {
             
             TextEditor(text: .constant(controller.lastResult?.text ?? ""))
                 .font(.system(.body, design: .monospaced))
-                .frame(height: 100)
+                .frame(height: 80)
                 .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.gray.opacity(0.2)))
             
             if let metrics = controller.lastResult?.metrics {
@@ -165,6 +177,41 @@ struct DebugWindowView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    
+    var modelManagementSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("MODEL MANAGEMENT")
+                .font(.caption)
+                .fontWeight(.black)
+                .foregroundColor(.secondary)
+            
+            HStack {
+                Button(action: { controller.loadModel() }) {
+                    HStack {
+                        Image(systemName: "arrow.down.circle")
+                        Text("Reload Model")
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .disabled(controller.status == .loading)
+                
+                Button(action: { controller.deleteModelCache() }) {
+                    HStack {
+                        Image(systemName: "trash")
+                        Text("Delete Cache")
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .tint(.red)
+                .disabled(controller.status == .loading)
+            }
+        }
+        .padding()
+        .background(Color.gray.opacity(0.05))
+        .cornerRadius(12)
     }
     
     var permissionsSection: some View {
@@ -259,7 +306,7 @@ class DebugWindow: NSWindow {
         }
         
         let window = DebugWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 400, height: 600),
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 750),
             styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,
             defer: false

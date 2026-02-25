@@ -38,6 +38,7 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     
     @Published var lastResult: TranscriptionResult?
     @Published var status: ASREngineStatus = .idle
+    @Published var loadProgress: Double = 0
     @Published var isRecording = false
     @Published var currentPower: Float = 0
     @Published var mode: RecordingMode = .toggle
@@ -132,6 +133,27 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
         // Notify UI to refresh checkmark
         self.objectWillChange.send()
         statusBarManager?.setupMenu()
+    }
+    
+    // MARK: - Model Management
+    func loadModel() {
+        Task {
+            do {
+                try await asrEngine.loadModel()
+            } catch {
+                print("Airakeet: Manual load failed: \(error)")
+            }
+        }
+    }
+    
+    func deleteModelCache() {
+        Task {
+            do {
+                try await asrEngine.deleteModelCache()
+            } catch {
+                print("Airakeet: Delete cache failed: \(error)")
+            }
+        }
     }
     
     func updateHasLastRecording() {
@@ -247,7 +269,8 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     
     nonisolated func audioRecorderDidUpdatePower(_ power: Float) {
         Task { @MainActor in
-            self.currentPower = power
+            // Simple low-pass filter for smoothing
+            self.currentPower = self.currentPower * 0.6 + power * 0.4
         }
     }
     
@@ -272,6 +295,10 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
         } else if status == .transcribing {
             OverlayWindow.show(view: AnyView(RecordingOverlayView(controller: self)))
         }
+    }
+    
+    func asrEngineDidUpdateProgress(_ progress: Double) {
+        self.loadProgress = progress
     }
     
     // MARK: - Actions
