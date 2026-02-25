@@ -270,7 +270,7 @@ struct DebugWindowView: View {
         .background(Color.gray.opacity(0.05))
         .cornerRadius(12)
     }
-    
+
     func metricRow(label: String, value: String) -> some View {
         HStack {
             Text(label)

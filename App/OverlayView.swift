@@ -41,7 +41,7 @@ struct RecordingOverlayView: View {
                 .font(.system(.body, design: .rounded))
                 .fontWeight(.medium)
                 .foregroundStyle(.secondary)
-                .fixedSize() // Prevents text from being cut off
+                .fixedSize()
         }
     }
     
@@ -59,25 +59,34 @@ struct RecordingOverlayView: View {
             }
             .frame(width: 75) // Fixed width for bar area
             
-            Text("Listening...")
-                .font(.system(.body, design: .rounded))
-                .fontWeight(.bold)
-                .padding(.leading, 4)
-                .fixedSize() // Prevents text from being cut off
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Listening...")
+                    .font(.system(.body, design: .rounded))
+                    .fontWeight(.bold)
+                Text("Esc to cancel")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.leading, 4)
+            .fixedSize() // Prevents text from being cut off
         }
     }
     
     private func barHeight(for index: Int) -> CGFloat {
         let base: CGFloat = 4
         
-        // TUNED REACTIVITY (v2)
-        // Lower noise gate to pick up subtle speech
-        let power = CGFloat(max(0, controller.currentPower - 0.005)) 
+        // TUNED REACTIVITY (v5)
+        // Mac microphone Float32 peaks around 0.01 to 0.05 for normal speech.
+        // We subtract a tiny noise floor, then multiply heavily so normal speech hits ~1.0
+        let power = CGFloat(max(0, controller.currentPower - 0.001))
         
-        // Curve: 2.0 for a nice "pop" without being too jumpy
-        let reactivePower = pow(power * 10, 2.0) 
+        // Multiply by 80 so 0.012 (normal speech) becomes ~1.0
+        let normalized = min(1.5, power * 80)
         
-        let multiplier: CGFloat = 25.0
+        // Softer exponential curve (was 1.2) to keep peaks from spiking too high
+        let reactivePower = pow(normalized, 1.05)
+        
+        let multiplier: CGFloat = 28.0
         let idleMovement = sin(phase + Double(index) * 0.8) * 3
         
         // Centrality for 12 bars (center is between 5 and 6)

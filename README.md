@@ -18,6 +18,7 @@ I built this because I was tired of "lightweight" dictation apps that still cons
 ## Features
 - **Strictly Local:** Powered by NVIDIA Parakeet TDT 0.6B V2 via CoreML.
 - **Superwhisper-like UX:** Menubar-only app with global hotkeys.
+- **Escape to cancel:** Press Esc while recording to discard safely (audio stays available via Debug > Play Last Recording).
 - **Reactive Waveform:** A sleek, liquid-motion overlay that reacts to your voice in real-time.
 - **Custom Appearance:** Choose your own waveform color to match your setup.
 - **Configurable Hotkeys:** Support for standard Mac shortcuts, custom `Fn + Key` combos, and a specialized `Shift + Fn` trigger.
@@ -29,8 +30,8 @@ I built this because I was tired of "lightweight" dictation apps that still cons
 - **Fast:** ~45x real-time factor on Apple M2 (0.11s for 5s of audio).
 
 ## Design Decisions
-### Why no "Escape to Cancel?"
-To keep Airakeet's footprint as small as possible on 8GB machines, I opted not to include global keyboard event listeners beyond the primary hotkey. This minimizes background CPU usage and keeps the app's security profile strictly limited to the essential "Dictation" task.
+### Escape to Cancel
+When the listening overlay is visible, Airakeet temporarily arms a global Escape-key monitor. Pressing Esc immediately abandons the current session, hides the overlay, and skips clipboard injection. The captured audio is still cached on disk, so you can recover it later via **Debug → Play Last Recording**. Because the monitor only exists during active sessions, the idle CPU and security footprint remain effectively zero—perfect for the 8GB-first design goal.
 
 ### Memory Management
 Airakeet uses an "extract-and-clear" strategy for audio data. Raw samples are moved out of active memory immediately when recording stops, and the ~800MB ASR model is automatically unloaded after 5 minutes of inactivity.

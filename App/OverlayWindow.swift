@@ -3,6 +3,7 @@ import SwiftUI
 
 class OverlayWindow: NSWindow {
     static var shared: OverlayWindow?
+    private var hostingView: NSHostingView<AnyView>?
     
     init(rootView: AnyView) {
         super.init(
@@ -22,6 +23,7 @@ class OverlayWindow: NSWindow {
         let hostingView = NSHostingView(rootView: rootView)
         hostingView.translatesAutoresizingMaskIntoConstraints = false
         self.contentView = hostingView
+        self.hostingView = hostingView
         
         centerOnScreen()
     }
@@ -36,12 +38,20 @@ class OverlayWindow: NSWindow {
         }
     }
     
+    func replaceContent(with view: AnyView) {
+        hostingView?.rootView = view
+    }
+    
     static func show(view: AnyView) {
-        if shared == nil {
-            shared = OverlayWindow(rootView: view)
+        if let window = shared {
+            window.replaceContent(with: view)
+            window.makeKeyAndOrderFront(nil)
+            window.centerOnScreen()
+        } else {
+            let window = OverlayWindow(rootView: view)
+            shared = window
+            window.makeKeyAndOrderFront(nil)
         }
-        shared?.makeKeyAndOrderFront(nil)
-        shared?.centerOnScreen()
     }
     
     static func hide() {

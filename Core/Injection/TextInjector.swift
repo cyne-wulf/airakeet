@@ -11,6 +11,7 @@ public final class TextInjector {
         
         let pasteboard = NSPasteboard.general
         let previousContent = pasteboard.string(forType: .string)
+        let injectedText = text
         
         pasteboard.declareTypes([.string], owner: nil)
         pasteboard.setString(text, forType: .string)
@@ -27,11 +28,15 @@ public final class TextInjector {
         vUp?.post(tap: .cghidEventTap)
         
         // Restore pasteboard after a delay (optional, but nice)
-        if let prev = previousContent {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                let pb = NSPasteboard.general
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            let pb = NSPasteboard.general
+            guard pb.string(forType: .string) == injectedText else { return }
+            
+            if let prev = previousContent {
                 pb.declareTypes([.string], owner: nil)
                 pb.setString(prev, forType: .string)
+            } else {
+                pb.clearContents()
             }
         }
     }

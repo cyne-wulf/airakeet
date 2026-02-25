@@ -309,48 +309,70 @@ main {
 }
 
 .model-compare {
+  grid-column: 1 / -1;
   margin-top: 2rem;
-  border-radius: 1.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
   background: linear-gradient(145deg, rgba(58, 82, 184, 0.35), rgba(6, 12, 28, 0.85));
-  padding: clamp(1.5rem, 4vw, 3rem);
-  box-shadow: 0 25px 60px rgba(4, 6, 16, 0.5);
 }
 
 .compare-table {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
+  width: 100%;
+  border-collapse: collapse;
   margin-top: 1.5rem;
 }
 
-.compare-row {
-  display: grid;
-  grid-template-columns: 160px 1fr 1fr;
-  gap: 1rem;
-  padding-bottom: 1.25rem;
+.compare-table th,
+.compare-table td {
+  text-align: left;
+  padding: 1rem 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-.compare-row:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
-}
-
-.compare-row .label {
-  color: var(--muted);
-  margin: 0;
-  font-size: 0.8rem;
+.compare-table thead th {
   text-transform: uppercase;
   letter-spacing: 0.1em;
+  font-size: 0.75rem;
+  color: var(--muted);
 }
 
-.compare-title {
-  text-transform: uppercase;
+.compare-table tbody th {
+  font-size: 0.85rem;
   letter-spacing: 0.08em;
-  font-size: 0.8rem;
+  text-transform: uppercase;
   color: var(--accent);
-  margin: 0 0 0.35rem;
+  padding-right: 1.5rem;
+}
+
+.compare-table tbody tr:last-child th,
+.compare-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+@media (max-width: 640px) {
+  .compare-table thead {
+    display: none;
+  }
+
+  .compare-table,
+  .compare-table tbody,
+  .compare-table tr,
+  .compare-table td,
+  .compare-table th {
+    display: block;
+    width: 100%;
+  }
+
+  .compare-table tbody tr {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 0.75rem 0;
+  }
+
+  .compare-table tbody th {
+    margin-bottom: 0.5rem;
+  }
+
+  .compare-table tbody td + td {
+    margin-top: 0.5rem;
+  }
 }
 
 .section-header {

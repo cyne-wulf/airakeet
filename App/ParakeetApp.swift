@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import Core
 import FluidAudio
 import AVFoundation
@@ -6,6 +7,7 @@ import KeyboardShortcuts
 import Combine
 import ServiceManagement
 import UniformTypeIdentifiers
+import Carbon.HIToolbox
 
 @main
 struct AirakeetApp: App {
@@ -20,16 +22,33 @@ struct AirakeetApp: App {
 
 @MainActor
 class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngineDelegate, AudioRecorderDelegate {
+    struct AudioDeviceInfo: Identifiable, Equatable, Sendable {
+        let uniqueID: String
+        let localizedName: String
+        var id: String { uniqueID }
+    }
+    
     var statusBarManager: StatusBarManager?
     private let asrEngine = ASREngine()
     private let recorder = AudioRecorder()
     private let injector = TextInjector()
+    private let updateManager = UpdateManager(owner: "cyne-wulf", repo: "airakeet")
     let hotkeyManager = HotkeyManager()
     @Published var permissions = PermissionsManager()
     @Published var waveformColor: Color = .blue
+    @Published var updateStatus: UpdateStatus = .idle
+    @Published var latestRelease: ReleaseInfo?
     
     var useShiftFnShortcut: Bool {
         hotkeyManager.useShiftFnShortcut
+    }
+    
+    var currentVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.0"
+    }
+    
+    var updateMenuTitle: String {
+        updateStatus.menuTitle(currentVersion: currentVersion)
     }
     
     func toggleShiftFnShortcut() {
@@ -44,16 +63,33 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     @Published var isRecording = false
     @Published var currentPower: Float = 0
     @Published var mode: RecordingMode = .toggle
-    @Published var availableDevices: [AVCaptureDevice] = []
+    @Published var availableDevices: [AudioDeviceInfo] = []
     @Published var selectedDeviceID: String?
     
     private var idleTimer: Timer?
+    private var permissionTimer: Timer?
     private let idleTimeout: TimeInterval = 300 // 5 minutes
+    private let shortClipThreshold: TimeInterval = 1.0
+    private var lastClipDuration: TimeInterval?
+    private var overlayMessageTask: Task<Void, Never>?
+    private var isPresentingSpecificErrorOverlay = false
     
+    private var escapeCancelMonitor: Any?
+    private var escapeCancelLocalMonitor: Any?
+    
+    private var isEscapeCancellationInFlight = false
+    
+    private var startTask: Task<Void, Never>?
     private var transcriptionTask: Task<Void, Never>?
+    private var updateTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
     private var audioPlayer: AVAudioPlayer?
     @Published var hasLastRecording: Bool = false
+    private var pendingRelaunchURL: URL?
+    private var deferredInitializationTask: Task<Void, Never>?
+    private var hasPerformedInitialWarmup = false
+    private var deviceRefreshTask: Task<Void, Never>?
+    private var deviceNotificationObservers: [NSObjectProtocol] = []
     
     override init() {
         super.init()
@@ -75,13 +111,17 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     private func setup() {
         hotkeyManager.delegate = self
         recorder.delegate = self
+        observePermissionChanges()
         
         // Check if last recording exists on disk
         updateHasLastRecording()
         
         // Load initial devices
-        self.availableDevices = AudioRecorder.availableDevices()
+        self.availableDevices = []
         self.selectedDeviceID = AVCaptureDevice.default(for: .audio)?.uniqueID
+        recorder.selectedDeviceID = self.selectedDeviceID
+        scheduleDeviceEnumeration()
+        registerDeviceNotifications()
         
         // Set default hotkey
         if KeyboardShortcuts.getShortcut(for: .toggleAirakeet) == nil {
@@ -91,28 +131,244 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
         // Initialize ASR engine
         Task {
             await asrEngine.setDelegate(self)
-            do {
-                try await asrEngine.ensureInitialized()
-                resetIdleTimer()
-            } catch {
-                print("Airakeet: ASR Init error: \(error)")
-            }
         }
-        
+        deferASRWarmupIfNeeded()
+
         statusBarManager = StatusBarManager(controller: self)
         
-        // Reactive Menu Refresh
+        setupMenuRefreshPipeline()
+
+        startPermissionPolling()
+    }
+    
+    private func observePermissionChanges() {
         permissions.objectWillChange
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
-                self?.statusBarManager?.setupMenu()
+                self?.objectWillChange.send()
             }
             .store(in: &cancellables)
-            
-        // Frequent polling for permissions (1s)
-        Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in
+    }
+    
+    private func setupMenuRefreshPipeline() {
+        objectWillChange
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.requestMenuRefresh()
+            }
+            .store(in: &cancellables)
+
+        permissions.$hasMicrophonePermission
+            .combineLatest(permissions.$hasAccessibilityPermission)
+            .removeDuplicates { lhs, rhs in lhs.0 == rhs.0 && lhs.1 == rhs.1 }
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _, _ in
+                guard let self = self else { return }
+                self.startPermissionPolling()
+                self.deferASRWarmupIfNeeded()
+            }
+            .store(in: &cancellables)
+    }
+    
+    private func requestMenuRefresh() {
+        statusBarManager?.setNeedsMenuRefresh()
+    }
+    
+    private func startPermissionPolling() {
+        permissions.checkAll()
+        let hasAllPermissions = permissions.hasMicrophonePermission && permissions.hasAccessibilityPermission
+        let interval: TimeInterval = hasAllPermissions ? 5.0 : 1.0
+        if let timer = permissionTimer, abs(timer.timeInterval - interval) < 0.001 {
+            return
+        }
+        permissionTimer?.invalidate()
+        let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
                 self?.permissions.checkAll()
+            }
+        }
+        timer.tolerance = interval * 0.2
+        RunLoop.main.add(timer, forMode: .common)
+        permissionTimer = timer
+    }
+    
+    private func deferASRWarmupIfNeeded() {
+        guard !hasPerformedInitialWarmup else { return }
+        guard deferredInitializationTask == nil else { return }
+        guard permissions.hasMicrophonePermission && permissions.hasAccessibilityPermission else { return }
+        
+        deferredInitializationTask = Task { [weak self] in
+            defer { self?.deferredInitializationTask = nil }
+            do {
+                try await Task.sleep(nanoseconds: 2_000_000_000)
+            } catch {
+                return
+            }
+            guard let self else {
+                return
+            }
+            
+            let engine = self.asrEngine
+            do {
+                try await Task.detached(priority: .utility) {
+                    try await engine.ensureInitialized()
+                }.value
+                self.hasPerformedInitialWarmup = true
+                self.resetIdleTimer()
+            } catch {
+                print("Airakeet: Deferred ASR init failed: \(error)")
+            }
+        }
+    }
+    
+    private func scheduleDeviceEnumeration() {
+        deviceRefreshTask?.cancel()
+        deviceRefreshTask = Task { [weak self] in
+            guard let self else { return }
+            let devices = await Task.detached(priority: .utility) { () -> [AudioDeviceInfo] in
+                let discoverySession = AVCaptureDevice.DiscoverySession(
+                    deviceTypes: [.microphone],
+                    mediaType: .audio,
+                    position: .unspecified
+                )
+                return discoverySession.devices.map { device in
+                    AudioDeviceInfo(uniqueID: device.uniqueID, localizedName: device.localizedName)
+                }
+            }.value
+            self.applyEnumeratedDevices(devices)
+        }
+    }
+    
+    private func applyEnumeratedDevices(_ devices: [AudioDeviceInfo]) {
+        availableDevices = devices
+        if let selected = selectedDeviceID,
+           !devices.contains(where: { $0.uniqueID == selected }) {
+            selectedDeviceID = nil
+        }
+        
+        if selectedDeviceID == nil {
+            selectedDeviceID = devices.first?.uniqueID
+        }
+        
+        recorder.selectedDeviceID = selectedDeviceID
+    }
+    
+    private func registerDeviceNotifications() {
+        let center = NotificationCenter.default
+        let queue = OperationQueue.main
+        let notifications: [NSNotification.Name] = [
+            .AVCaptureDeviceWasConnected,
+            .AVCaptureDeviceWasDisconnected
+        ]
+        
+        notifications.forEach { name in
+            let token = center.addObserver(forName: name, object: nil, queue: queue) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    self?.scheduleDeviceEnumeration()
+                }
+            }
+            deviceNotificationObservers.append(token)
+        }
+    }
+    
+    // MARK: - Overlay Helpers
+    private func showRecordingOverlay() {
+        showOverlay(AnyView(RecordingOverlayView(controller: self)))
+        armEscapeCancelMonitor()
+    }
+    
+    private func showOverlay(_ view: AnyView) {
+        cancelOverlayHideTask()
+        isPresentingSpecificErrorOverlay = false
+        OverlayWindow.show(view: view)
+    }
+    
+    private func presentTransientOverlay(for message: OverlayMessage, duration: TimeInterval = 1.0) {
+        cancelOverlayHideTask()
+        isPresentingSpecificErrorOverlay = message.isSpecificError
+        let view = AnyView(
+            StatusMessageOverlayView(
+                iconName: message.iconName,
+                iconColor: message.iconColor,
+                title: message.title,
+                subtitle: message.subtitle
+            )
+        )
+        OverlayWindow.show(view: view)
+        overlayMessageTask = Task { @MainActor [weak self] in
+            let nanoseconds = UInt64(duration * 1_000_000_000)
+            try? await Task.sleep(nanoseconds: nanoseconds)
+            guard let self else { return }
+            if Task.isCancelled { return }
+            OverlayWindow.hide()
+            self.isPresentingSpecificErrorOverlay = false
+            self.overlayMessageTask = nil
+        }
+    }
+    
+    private func hideOverlay() {
+        cancelOverlayHideTask()
+        isPresentingSpecificErrorOverlay = false
+        OverlayWindow.hide()
+        disarmEscapeCancelMonitor()
+    }
+    
+    private func cancelOverlayHideTask() {
+        overlayMessageTask?.cancel()
+        overlayMessageTask = nil
+    }
+    
+    private func armEscapeCancelMonitor() {
+        if escapeCancelMonitor == nil {
+            escapeCancelMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                guard event.keyCode == UInt16(kVK_Escape) else { return }
+                Task { @MainActor [weak self] in
+                    self?.handleEscapeCancel()
+                }
+            }
+        }
+
+        if escapeCancelLocalMonitor == nil {
+            escapeCancelLocalMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                guard event.keyCode == UInt16(kVK_Escape) else { return event }
+                Task { @MainActor [weak self] in
+                    self?.handleEscapeCancel()
+                }
+                return nil
+            }
+        }
+    }
+
+    private func disarmEscapeCancelMonitor() {
+        if let m = escapeCancelMonitor { NSEvent.removeMonitor(m) }
+        if let m = escapeCancelLocalMonitor { NSEvent.removeMonitor(m) }
+        escapeCancelMonitor = nil
+        escapeCancelLocalMonitor = nil
+    }
+    
+    private func handleEscapeCancel() {
+        guard !isEscapeCancellationInFlight else { return }
+        guard isRecording else { return }
+        
+        isEscapeCancellationInFlight = true
+        print("Airakeet: Escape cancellation triggered during recording.")
+        
+        cancelPendingStart()
+        cancelActiveTranscriptionTask()
+        
+        hideOverlay()
+        resetIdleTimer()
+        presentTransientOverlay(for: .cancelled, duration: 1.25)
+        
+        Task { [weak self] in
+            guard let self else { return }
+            defer { self.isEscapeCancellationInFlight = false }
+            do {
+                let (_, duration) = try await self.recorder.stopRecording()
+                self.lastClipDuration = duration
+                self.updateHasLastRecording()
+            } catch {
+                print("Airakeet: Escape cancel stop error: \(error)")
             }
         }
     }
@@ -134,14 +390,14 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
         }
         // Notify UI to refresh checkmark
         self.objectWillChange.send()
-        statusBarManager?.setupMenu()
+        requestMenuRefresh()
     }
     
     // MARK: - Model Management
     func loadModel() {
         Task {
             do {
-                try await asrEngine.loadModel()
+                try await asrEngine.loadModel(forceReload: true)
             } catch {
                 print("Airakeet: Manual load failed: \(error)")
             }
@@ -178,8 +434,7 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     }
     
     func deleteLastRecording() {
-        guard let url = recorder.getLastRecordingURL() else { return }
-        try? FileManager.default.removeItem(at: url)
+        recorder.clearLastRecording()
         updateHasLastRecording()
         print("Airakeet: Last recording deleted.")
     }
@@ -210,13 +465,27 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     }
     
     func reTranscribeLast() {
-        guard let _ = recorder.getLastRecordingURL() else { return }
+        guard let url = recorder.getLastRecordingURL() else { return }
+        cancelActiveTranscriptionTask()
         transcriptionTask = Task {
+            defer {
+                resetIdleTimer()
+                transcriptionTask = nil
+                if !isRecording {
+                    status = .ready
+                }
+            }
+            
             do {
-                print("Airakeet: Re-transcribing last recording...")
+                try await asrEngine.ensureInitialized()
                 status = .transcribing
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
-                status = .ready
+                let result = try await asrEngine.transcribe(url: url)
+                if Task.isCancelled { return }
+                self.lastResult = result
+            } catch {
+                if Task.isCancelled { return }
+                print("Airakeet: Re-transcribe error: \(error)")
+                presentTransientOverlay(for: .generalError)
             }
         }
     }
@@ -242,14 +511,14 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
                 do {
                     try await asrEngine.ensureInitialized()
                     // Show overlay for feedback
-                    OverlayWindow.show(view: AnyView(RecordingOverlayView(controller: self)))
+                    self.showRecordingOverlay()
                     
                     let result = try await asrEngine.transcribe(url: url)
                     self.lastResult = result
                     injector.inject(result.text)
                 } catch {
                     print("Airakeet: File transcription error: \(error)")
-                    OverlayWindow.hide()
+                    self.presentTransientOverlay(for: .generalError)
                 }
             }
         }
@@ -271,10 +540,6 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
         FileTranscriptionWindow.show(controller: self)
     }
     
-    func refreshDevices() {
-        self.availableDevices = AudioRecorder.availableDevices()
-    }
-    
     func changeDevice(_ deviceID: String) {
         self.selectedDeviceID = deviceID
         recorder.selectedDeviceID = deviceID
@@ -282,6 +547,67 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     
     func openHotkeySettings() {
         HotkeySettingsWindow.show(controller: self)
+    }
+    
+    func openUpdateWindow() {
+        NSApp.activate(ignoringOtherApps: true)
+        UpdateStatusWindow.show(controller: self)
+    }
+    
+    func beginUpdateFlow() {
+        openUpdateWindow()
+        guard updateTask == nil else { return }
+        updateTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            self.updateStatus = .checking
+            self.requestMenuRefresh()
+            do {
+                let outcome = try await self.updateManager.checkAndInstall(currentVersion: self.currentVersion) { event in
+                    Task { @MainActor [weak self] in
+                        self?.handleUpdateEvent(event)
+                    }
+                }
+                self.latestRelease = outcome.release
+                switch outcome.result {
+                case .upToDate(let remote):
+                    self.updateStatus = .upToDate(remoteVersion: remote)
+                case .installed(let version, let location):
+                    self.pendingRelaunchURL = location
+                    self.updateStatus = .needsRestart(version: version)
+                }
+            } catch let error as UpdateError {
+                self.updateStatus = .failed(message: error.errorDescription ?? "Unknown update error.")
+            } catch {
+                self.updateStatus = .failed(message: error.localizedDescription)
+            }
+            self.updateTask = nil
+            self.requestMenuRefresh()
+        }
+    }
+    
+    func restartAfterUpdate() {
+        let targetURL = pendingRelaunchURL ?? Bundle.main.bundleURL
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        NSWorkspace.shared.openApplication(at: targetURL, configuration: configuration) { _, _ in
+            DispatchQueue.main.async {
+                NSApp.terminate(nil)
+            }
+        }
+    }
+    
+    @MainActor
+    private func handleUpdateEvent(_ event: UpdateStateEvent) {
+        switch event {
+        case .checking:
+            updateStatus = .checking
+        case .foundRelease(let release):
+            latestRelease = release
+        case .downloadProgress(let progress):
+            updateStatus = .downloading(progress: progress)
+        case .installing:
+            updateStatus = .installing
+        }
     }
     
     private func resetIdleTimer() {
@@ -293,23 +619,33 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
         }
     }
     
-    // MARK: - AudioRecorderDelegate
-    nonisolated func audioRecorderDidUpdateRecordingState(_ isRecording: Bool) {
-        Task { @MainActor in
-            self.isRecording = isRecording
-            if isRecording {
-                OverlayWindow.show(view: AnyView(RecordingOverlayView(controller: self)))
-            } else if self.status != .transcribing {
-                OverlayWindow.hide()
-            }
+    private func cancelPendingStart() {
+        guard let task = startTask else { return }
+        task.cancel()
+        startTask = nil
+    }
+    
+    private func cancelActiveTranscriptionTask() {
+        guard let task = transcriptionTask else { return }
+        transcriptionTask = nil
+        task.cancel()
+        Task.detached(priority: .userInitiated) {
+            _ = await task.result
         }
     }
     
-    nonisolated func audioRecorderDidUpdatePower(_ power: Float) {
-        Task { @MainActor in
-            // Simple low-pass filter for smoothing
-            self.currentPower = self.currentPower * 0.6 + power * 0.4
+    // MARK: - AudioRecorderDelegate
+    func audioRecorderDidUpdateRecordingState(_ isRecording: Bool) {
+        self.isRecording = isRecording
+        if isRecording {
+            self.showRecordingOverlay()
+        } else if self.status != .transcribing {
+            self.hideOverlay()
         }
+    }
+
+    func audioRecorderDidUpdatePower(_ power: Float) {
+        self.currentPower = power
     }
     
     // MARK: - HotkeyManagerDelegate
@@ -328,10 +664,19 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     // MARK: - ASREngineDelegate
     func asrEngineDidUpdateStatus(_ status: ASREngineStatus) {
         self.status = status
-        if status == .ready && !isRecording {
-            OverlayWindow.hide()
-        } else if status == .transcribing {
-            OverlayWindow.show(view: AnyView(RecordingOverlayView(controller: self)))
+        switch status {
+        case .ready:
+            if !isRecording {
+                hideOverlay()
+            }
+        case .transcribing:
+            showRecordingOverlay()
+        case .error:
+            if !isPresentingSpecificErrorOverlay {
+                presentTransientOverlay(for: .generalError)
+            }
+        default:
+            break
         }
     }
     
@@ -345,25 +690,49 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     
     // MARK: - Actions
     func startRecording() {
-        guard !isRecording else { return }
-        
-        if !permissions.hasMicrophonePermission || !permissions.hasAccessibilityPermission {
+        guard startTask == nil else { return }
+        permissions.checkAll()
+        guard permissions.hasMicrophonePermission && permissions.hasAccessibilityPermission else {
             openDebugWindow()
             return
         }
+        guard !isRecording else { return }
+        
+        cancelActiveTranscriptionTask()
         
         idleTimer?.invalidate()
+        lastClipDuration = nil
         
-        Task {
+        let task = Task { [weak self] in
+            guard let self = self else { return }
+            defer {
+                Task { @MainActor in
+                    self.startTask = nil
+                }
+            }
             do {
-                try await asrEngine.ensureInitialized()
-                try recorder.startRecording()
+                try await self.asrEngine.ensureInitialized()
+                try Task.checkCancellation()
+                try await MainActor.run {
+                    self.recorder.clearLastRecording()
+                    self.updateHasLastRecording()
+                    try self.recorder.startRecording()
+                }
+            } catch is CancellationError {
+                await MainActor.run {
+                    self.resetIdleTimer()
+                    self.hideOverlay()
+                }
             } catch {
                 print("Airakeet: Start error: \(error)")
-                resetIdleTimer()
-                OverlayWindow.hide()
+                await MainActor.run {
+                    self.resetIdleTimer()
+                    self.presentTransientOverlay(for: .generalError)
+                }
             }
         }
+        
+        startTask = task
     }
     
     func startManualRecording() {
@@ -371,6 +740,10 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     }
     
     func stopRecording() {
+        cancelPendingStart()
+        guard isRecording else { return }
+        
+        cancelActiveTranscriptionTask()
         transcriptionTask = Task {
             defer { 
                 resetIdleTimer() 
@@ -379,6 +752,7 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
             
             do {
                 let (samples, duration) = try await recorder.stopRecording()
+                self.lastClipDuration = duration
                 updateHasLastRecording()
                 if Task.isCancelled { return }
                 
@@ -390,8 +764,12 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
             } catch {
                 if !Task.isCancelled {
                     print("Airakeet: Transcription error: \(error)")
+                    if let duration = self.lastClipDuration, duration < self.shortClipThreshold {
+                        self.presentTransientOverlay(for: .shortInput)
+                    } else {
+                        self.presentTransientOverlay(for: .generalError)
+                    }
                 }
-                OverlayWindow.hide()
             }
         }
     }
@@ -407,28 +785,92 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     }
     
     func quit() {
+        recorder.clearLastRecording()
         NSApplication.shared.terminate(nil)
+    }
+    
+    private enum OverlayMessage {
+        case shortInput
+        case generalError
+        case cancelled
+        
+        var iconName: String {
+            switch self {
+            case .shortInput: return "mic.slash.fill"
+            case .generalError: return "xmark.octagon.fill"
+            case .cancelled: return "escape"
+            }
+        }
+        
+        var iconColor: Color {
+            switch self {
+            case .shortInput: return .red
+            case .generalError: return .red
+            case .cancelled: return .yellow
+            }
+        }
+        
+        var title: String {
+            switch self {
+            case .shortInput: return "Error: input too short"
+            case .generalError: return "Error: try again"
+            case .cancelled: return "Canceled"
+            }
+        }
+        
+        var subtitle: String? {
+            switch self {
+            case .shortInput: return nil
+            case .generalError: return "See Debug window for details."
+            case .cancelled: return nil
+            }
+        }
+        
+        var isSpecificError: Bool {
+            switch self {
+            case .shortInput: return true
+            case .generalError: return false
+            case .cancelled: return false
+            }
+        }
     }
 }
 
 @MainActor
-class StatusBarManager {
-    private var statusBarItem: NSStatusItem
+class StatusBarManager: NSObject, NSMenuDelegate {
+    private let statusBarItem: NSStatusItem
     private let controller: AppController
+    private let menu: NSMenu
+    private var needsMenuRefresh = true
     
     init(controller: AppController) {
         self.controller = controller
         self.statusBarItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        self.menu = NSMenu()
+        super.init()
         
         if let button = statusBarItem.button {
             button.image = NSImage(systemSymbolName: "waveform.circle", accessibilityDescription: "Airakeet")
         }
         
-        setupMenu()
+        menu.delegate = self
+        statusBarItem.menu = menu
+        setNeedsMenuRefresh()
     }
     
-    func setupMenu() {
-        let menu = NSMenu()
+    func setNeedsMenuRefresh() {
+        needsMenuRefresh = true
+    }
+    
+    @objc func menuNeedsUpdate(_ menu: NSMenu) {
+        guard menu === self.menu else { return }
+        guard needsMenuRefresh || menu.items.isEmpty else { return }
+        rebuildMenu()
+        needsMenuRefresh = false
+    }
+    
+    private func rebuildMenu() {
+        menu.removeAllItems()
         
         // Title
         let titleItem = NSMenuItem(title: "Airakeet", action: nil, keyEquivalent: "")
@@ -487,7 +929,6 @@ class StatusBarManager {
         
         // Microphone Selector
         let micSelectorMenu = NSMenu()
-        controller.refreshDevices()
         controller.availableDevices.forEach { device in
             let item = NSMenuItem(title: device.localizedName, action: #selector(changeDevice(_:)), keyEquivalent: "")
             item.target = self
@@ -497,7 +938,9 @@ class StatusBarManager {
         }
         
         if controller.availableDevices.isEmpty {
-            micSelectorMenu.addItem(NSMenuItem(title: "No devices found", action: nil, keyEquivalent: ""))
+            let emptyItem = NSMenuItem(title: "No devices found", action: nil, keyEquivalent: "")
+            emptyItem.isEnabled = false
+            micSelectorMenu.addItem(emptyItem)
         }
         
         let micSelectorItem = NSMenuItem(title: "Input Source", action: nil, keyEquivalent: "")
@@ -507,24 +950,25 @@ class StatusBarManager {
         menu.addItem(NSMenuItem.separator())
         
         // --- Debug & App Section ---
+        let updateItem = NSMenuItem(title: controller.updateMenuTitle, action: #selector(checkForUpdates), keyEquivalent: "")
+        updateItem.target = self
+        updateItem.isEnabled = controller.updateStatus.isClickable
+        menu.addItem(updateItem)
+        
         let debugItem = NSMenuItem(title: "Open Test/Debug...", action: #selector(openDebug), keyEquivalent: "d")
         debugItem.target = self
         menu.addItem(debugItem)
-        
-        menu.addItem(NSMenuItem.separator())
-        
-        let quitItem = NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q")
-        quitItem.target = self
-        menu.addItem(quitItem)
-        
-        menu.addItem(NSMenuItem.separator())
         
         let copyItem = NSMenuItem(title: "Copy Last Transcript", action: #selector(copyLast), keyEquivalent: "c")
         copyItem.target = self
         copyItem.isEnabled = controller.lastResult != nil
         menu.addItem(copyItem)
         
-        statusBarItem.menu = menu
+        menu.addItem(NSMenuItem.separator())
+        
+        let quitItem = NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q")
+        quitItem.target = self
+        menu.addItem(quitItem)
     }
     
     @objc func copyLast() { controller.copyLastTranscript() }
@@ -534,15 +978,16 @@ class StatusBarManager {
     @objc func changeMode(_ sender: NSMenuItem) {
         if let mode = sender.representedObject as? RecordingMode {
             controller.changeMode(mode)
-            setupMenu()
+            setNeedsMenuRefresh()
         }
     }
     @objc func changeDevice(_ sender: NSMenuItem) {
         if let deviceID = sender.representedObject as? String {
             controller.changeDevice(deviceID)
-            setupMenu()
+            setNeedsMenuRefresh()
         }
     }
+    @objc func checkForUpdates() { controller.beginUpdateFlow() }
     @objc func openDebug() { controller.openDebugWindow() }
     @objc func quit() { controller.quit() }
 }

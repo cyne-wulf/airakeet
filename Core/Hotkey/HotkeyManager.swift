@@ -12,6 +12,7 @@ public enum RecordingMode: String, CaseIterable, Sendable {
 public protocol HotkeyManagerDelegate: AnyObject {
     func hotkeyDidStart()
     func hotkeyDidStop()
+    func isCurrentlyRecording() -> Bool
 }
 
 private final class MonitorWrapper: @unchecked Sendable {
@@ -29,20 +30,29 @@ public final class HotkeyManager {
         }
     }
     
-    private var isRecording = false
-    private let monitorWrapper = MonitorWrapper()
+    private var globalModifierMonitor: MonitorWrapper?
+    private var localModifierMonitor: MonitorWrapper?
+    private var shiftFnEngaged = false
     
     public var useShiftFnShortcut: Bool {
         get { UserDefaults.standard.bool(forKey: "useShiftFnShortcut") }
-        set { 
+        set {
             UserDefaults.standard.set(newValue, forKey: "useShiftFnShortcut")
             logger.info("Shift+Fn shortcut enabled: \(newValue)")
+            if newValue {
+                startShiftFnMonitoring()
+            } else {
+                shiftFnEngaged = false
+                stopShiftFnMonitoring()
+            }
         }
     }
-    
+
     public init() {
         setupHandlers()
-        setupModifierMonitor()
+        if useShiftFnShortcut {
+            startShiftFnMonitoring()
+        }
     }
     
     private func setupHandlers() {
@@ -51,58 +61,95 @@ public final class HotkeyManager {
         }
         
         KeyboardShortcuts.onKeyUp(for: .toggleAirakeet) { [weak self] in
-            if self?.mode == .holdToTalk {
-                self?.stop()
-            }
+            guard let self = self, self.mode == .holdToTalk else { return }
+            self.stopIfRecording()
         }
     }
     
-    private func setupModifierMonitor() {
-        monitorWrapper.monitor = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
-            guard let self = self, self.useShiftFnShortcut else { return }
-            
-            let flags = event.modifierFlags
-            let isFn = flags.contains(.function)
-            let isShift = flags.contains(.shift)
-            
-            // Check that ONLY Fn and Shift are pressed (ignoring CapsLock/NumericPad)
-            let relevantFlags = flags.intersection([.function, .shift, .control, .option, .command])
-            
-            if relevantFlags == [.function, .shift] {
-                // Debounce slightly to prevent rapid firing while holding
+    private func startShiftFnMonitoring() {
+        if globalModifierMonitor?.monitor == nil {
+            let wrapper = globalModifierMonitor ?? MonitorWrapper()
+            wrapper.monitor = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
+                guard let self = self else { return }
                 Task { @MainActor in
-                    self.handleTrigger()
+                    self.handleShiftFnFlags(event.modifierFlags)
                 }
             }
+            globalModifierMonitor = wrapper
         }
+
+        if localModifierMonitor?.monitor == nil {
+            let wrapper = localModifierMonitor ?? MonitorWrapper()
+            wrapper.monitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
+                guard let self = self else { return event }
+                Task { @MainActor in
+                    self.handleShiftFnFlags(event.modifierFlags)
+                }
+                return event
+            }
+            localModifierMonitor = wrapper
+        }
+    }
+
+    private func stopShiftFnMonitoring() {
+        if let monitor = globalModifierMonitor?.monitor {
+            NSEvent.removeMonitor(monitor)
+        }
+        globalModifierMonitor?.monitor = nil
+
+        if let monitor = localModifierMonitor?.monitor {
+            NSEvent.removeMonitor(monitor)
+        }
+        localModifierMonitor?.monitor = nil
     }
     
     private func handleTrigger() {
-        if mode == .holdToTalk {
-            if !isRecording {
-                start()
+        let currentlyRecording = delegate?.isCurrentlyRecording() ?? false
+        switch mode {
+        case .holdToTalk:
+            if !currentlyRecording {
+                delegate?.hotkeyDidStart()
             }
-        } else { // Toggle
-            if isRecording {
-                stop()
+        case .toggle:
+            if currentlyRecording {
+                stopIfRecording()
             } else {
-                start()
+                delegate?.hotkeyDidStart()
             }
         }
     }
     
-    private func start() {
-        isRecording = true
-        delegate?.hotkeyDidStart()
+    private func handleShiftFnFlags(_ flags: NSEvent.ModifierFlags) {
+        guard useShiftFnShortcut else { return }
+
+        let maskedFlags = flags.intersection(.deviceIndependentFlagsMask)
+        let sanitizedFlags = maskedFlags.subtracting([.capsLock, .numericPad])
+        let engaged = sanitizedFlags == [.function, .shift]
+
+        if engaged && !shiftFnEngaged {
+            shiftFnEngaged = true
+            handleTrigger()
+        } else if !engaged && shiftFnEngaged {
+            shiftFnEngaged = false
+            stopShiftFnIfNeeded()
+        }
+    }
+
+    private func stopShiftFnIfNeeded() {
+        guard mode == .holdToTalk else { return }
+        stopIfRecording()
     }
     
-    private func stop() {
-        isRecording = false
+    private func stopIfRecording() {
+        guard delegate?.isCurrentlyRecording() ?? false else { return }
         delegate?.hotkeyDidStop()
     }
-    
+
     deinit {
-        if let monitor = monitorWrapper.monitor {
+        if let monitor = globalModifierMonitor?.monitor {
+            NSEvent.removeMonitor(monitor)
+        }
+        if let monitor = localModifierMonitor?.monitor {
             NSEvent.removeMonitor(monitor)
         }
     }

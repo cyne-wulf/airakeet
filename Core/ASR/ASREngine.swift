@@ -54,6 +54,7 @@ public final class ASREngine: Sendable {
     private let logger = Logger(subsystem: "com.airakeet.app", category: "ASREngine")
     private let managerContainer = AsrManagerContainer()
     private let state = EngineState()
+    private let loadCoordinator = LoadCoordinator()
     
     public init() {}
     
@@ -67,10 +68,34 @@ public final class ASREngine: Sendable {
     
     public func ensureInitialized() async throws {
         if await managerContainer.isInitialized() { return }
-        try await loadModel()
+        try await queueModelLoad(forceReload: false)
     }
     
-    public func loadModel() async throws {
+    public func loadModel(forceReload: Bool = false) async throws {
+        if !forceReload, await managerContainer.isInitialized() { return }
+        try await queueModelLoad(forceReload: forceReload)
+    }
+    
+    private func queueModelLoad(forceReload: Bool) async throws {
+        let task = await loadCoordinator.sharedTask {
+            if forceReload {
+                await self.managerContainer.unload()
+                await self.updateStatus(.idle)
+            }
+            try await self.performModelInitialization()
+        }
+        
+        do {
+            try await task.value
+        } catch {
+            await loadCoordinator.clearTask()
+            throw error
+        }
+        
+        await loadCoordinator.clearTask()
+    }
+    
+    private func performModelInitialization() async throws {
         await updateStatus(.loading)
         await updateProgress(0.0)
         await clearLog()
@@ -268,5 +293,25 @@ extension ASREngine {
         await managerContainer.unload()
         await updateStatus(.idle)
         logger.info("ASREngine models unloaded to save memory.")
+    }
+}
+
+actor LoadCoordinator {
+    private var task: Task<Void, Error>?
+    
+    func sharedTask(starting operation: @escaping @Sendable () async throws -> Void) -> Task<Void, Error> {
+        if let task {
+            return task
+        }
+        
+        let newTask = Task {
+            try await operation()
+        }
+        task = newTask
+        return newTask
+    }
+    
+    func clearTask() {
+        task = nil
     }
 }

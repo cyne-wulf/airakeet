@@ -3,6 +3,7 @@ import Foundation
 import OSLog
 import FluidAudio
 
+@MainActor
 public protocol AudioRecorderDelegate: AnyObject, Sendable {
     func audioRecorderDidUpdateRecordingState(_ isRecording: Bool)
     func audioRecorderDidUpdatePower(_ power: Float)
@@ -26,72 +27,48 @@ public final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBuffer
     
     public weak var delegate: AudioRecorderDelegate?
     
-    // Thread-safe state for the capture queue
-    private final class InternalState: @unchecked Sendable {
+    // Thread-safe sample accumulator for the capture queue.
+    // Only the lock-protected members are accessed off-MainActor (from the capture callback).
+    // inputFormat and delegate are set/read on MainActor only.
+    private final class CaptureBuffer: @unchecked Sendable {
         private let lock = NSLock()
         private var _samples = [Float]()
-        private var _inputFormat: AVAudioFormat?
-        private weak var _delegate: AudioRecorderDelegate?
-        
-        var samples: [Float] {
-            lock.lock()
-            defer { lock.unlock() }
-            return _samples
-        }
-        
-        var inputFormat: AVAudioFormat? {
-            lock.lock()
-            defer { lock.unlock() }
-            return _inputFormat
-        }
-        
-        func setInputFormat(_ format: AVAudioFormat) {
-            lock.lock()
-            defer { lock.unlock() }
-            if _inputFormat == nil {
-                _inputFormat = format
-            }
-        }
-        
-        func setDelegate(_ delegate: AudioRecorderDelegate?) {
-            lock.lock()
-            defer { lock.unlock() }
-            _delegate = delegate
-        }
-        
+        weak var delegate: AudioRecorderDelegate?
+        var inputFormat: AVAudioFormat?
+
         func append(_ newSamples: [Float]) {
-            lock.lock()
-            let count = newSamples.count
-            _samples.append(contentsOf: newSamples)
-            let d = _delegate
-            lock.unlock()
-            
-            if count > 0, let d = d {
-                // Peak power calculation for reactivity
-                var maxVal: Float = 0
-                // Check every sample for the true peak
-                for i in 0..<count {
-                    let absVal = abs(newSamples[i])
-                    if absVal > maxVal { maxVal = absVal }
-                }
-                
-                // Print to debug (comment out later)
-                // print("Airakeet Power: \(maxVal)")
-                
-                Task { @MainActor in d.audioRecorderDidUpdatePower(maxVal) }
+            lock.withLock { _samples.append(contentsOf: newSamples) }
+
+            guard !newSamples.isEmpty, let delegate else { return }
+
+            var maxVal: Float = 0
+            for sample in newSamples {
+                let magnitude = abs(sample)
+                if magnitude > maxVal { maxVal = magnitude }
+            }
+            Task { @MainActor in delegate.audioRecorderDidUpdatePower(maxVal) }
+        }
+
+        func drainSamples() -> [Float] {
+            lock.withLock {
+                let result = _samples
+                _samples = []
+                return result
             }
         }
-        
+
         func reset() {
-            lock.lock()
-            defer { lock.unlock() }
-            _samples = []
-            _samples.reserveCapacity(48000 * 60)
-            _inputFormat = nil
+            lock.withLock {
+                _samples = []
+                _samples.reserveCapacity(48000 * 60)
+            }
+            inputFormat = nil
         }
     }
-    private let internalState = InternalState()
+    private let captureBuffer = CaptureBuffer()
     private var lastRecordingURL: URL?
+    private let cacheDirectoryName = "com.airakeet.app"
+    private let lastRecordingFilename = "last_recording.wav"
 
     public override init() {
         super.init()
@@ -144,8 +121,8 @@ public final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBuffer
             session.addOutput(output)
         }
         
-        internalState.reset()
-        internalState.setDelegate(delegate)
+        captureBuffer.reset()
+        captureBuffer.delegate = delegate
         self.captureSession = session
         self.audioOutput = output
         
@@ -161,38 +138,74 @@ public final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBuffer
     
     nonisolated public func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         // Extract PCM data from sampleBuffer
-        var audioBufferList = AudioBufferList()
-        var blockBuffer: CMBlockBuffer?
-        
+        // First query the required buffer list size
+        var sizeNeeded: Int = 0
         CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer(
             sampleBuffer,
+            bufferListSizeNeededOut: &sizeNeeded,
+            bufferListOut: nil,
+            bufferListSize: 0,
+            blockBufferAllocator: nil,
+            blockBufferMemoryAllocator: nil,
+            flags: 0,
+            blockBufferOut: nil
+        )
+
+        // Allocate the exact size needed for the audio buffer list
+        let ablMemory = UnsafeMutablePointer<UInt8>.allocate(capacity: sizeNeeded)
+        defer { ablMemory.deallocate() }
+        let ablPointer = UnsafeMutableRawPointer(ablMemory).bindMemory(to: AudioBufferList.self, capacity: 1)
+
+        var blockBuffer: CMBlockBuffer?
+        let status = CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer(
+            sampleBuffer,
             bufferListSizeNeededOut: nil,
-            bufferListOut: &audioBufferList,
-            bufferListSize: MemoryLayout<AudioBufferList>.size,
+            bufferListOut: ablPointer,
+            bufferListSize: sizeNeeded,
             blockBufferAllocator: nil,
             blockBufferMemoryAllocator: nil,
             flags: kCMSampleBufferFlag_AudioBufferList_Assure16ByteAlignment,
             blockBufferOut: &blockBuffer
         )
+
+        guard status == noErr else { return }
+
+        let buffers = UnsafeMutableAudioBufferListPointer(ablPointer)
+        var mixedSamples: [Float] = []
+        var channelCount = 0
         
-        let buffers = UnsafeMutableAudioBufferListPointer(&audioBufferList)
         for buffer in buffers {
             guard let mData = buffer.mData else { continue }
             let frameCount = Int(buffer.mDataByteSize) / MemoryLayout<Float>.size
-            let ptr = mData.assumingMemoryBound(to: Float.self)
+            guard frameCount > 0 else { continue }
+            if mixedSamples.count < frameCount {
+                mixedSamples += Array(repeating: 0, count: frameCount - mixedSamples.count)
+            }
             
-            let samples = Array(UnsafeBufferPointer(start: ptr, count: frameCount))
-            internalState.append(samples)
+            let ptr = mData.assumingMemoryBound(to: Float.self)
+            for i in 0..<frameCount {
+                mixedSamples[i] += ptr[i]
+            }
+            channelCount += 1
         }
         
+        guard !mixedSamples.isEmpty else { return }
+
+        if channelCount > 1 {
+            let normalization = 1.0 / Float(channelCount)
+            for i in 0..<mixedSamples.count {
+                mixedSamples[i] *= normalization
+            }
+        }
+        
+        captureBuffer.append(mixedSamples)
+        
         // Capture format on first buffer if not set
-        if internalState.inputFormat == nil {
-            if let desc = CMSampleBufferGetFormatDescription(sampleBuffer) {
-                if let asbd = CMAudioFormatDescriptionGetStreamBasicDescription(desc) {
-                    if let format = AVAudioFormat(streamDescription: asbd) {
-                        internalState.setInputFormat(format)
-                    }
-                }
+        if captureBuffer.inputFormat == nil {
+            if let desc = CMSampleBufferGetFormatDescription(sampleBuffer),
+               let asbd = CMAudioFormatDescriptionGetStreamBasicDescription(desc),
+               let format = AVAudioFormat(streamDescription: asbd) {
+                captureBuffer.inputFormat = format
             }
         }
     }
@@ -208,8 +221,8 @@ public final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBuffer
             sessionToStop?.stopRunning()
         }
         
-        let rawSamples = internalState.samples
-        let format = internalState.inputFormat
+        let rawSamples = captureBuffer.drainSamples()
+        let format = captureBuffer.inputFormat
         
         if rawSamples.isEmpty {
             logger.warning("No samples captured.")
@@ -223,26 +236,41 @@ public final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBuffer
         
         logger.info("Processing \(rawSamples.count) samples from AVCapture...")
         
+        // Determine source format (mixed to mono if needed)
+        let sourceFormat: AVAudioFormat
+        if inputFormat.channelCount == 1 {
+            sourceFormat = inputFormat
+        } else {
+            guard let monoFormat = AVAudioFormat(
+                commonFormat: .pcmFormatFloat32,
+                sampleRate: inputFormat.sampleRate,
+                channels: 1,
+                interleaved: false
+            ) else {
+                logger.error("Failed to create mono source format.")
+                return ([], 0)
+            }
+            sourceFormat = monoFormat
+        }
+        
         // 1. Create a buffer from the raw samples
-        guard let inputBuffer = AVAudioPCMBuffer(pcmFormat: inputFormat, frameCapacity: AVAudioFrameCount(rawSamples.count)) else {
+        guard let inputBuffer = AVAudioPCMBuffer(pcmFormat: sourceFormat, frameCapacity: AVAudioFrameCount(rawSamples.count)) else {
             logger.error("Failed to create input buffer.")
             return ([], 0)
         }
         inputBuffer.frameLength = AVAudioFrameCount(rawSamples.count)
         
-        for channel in 0..<Int(inputFormat.channelCount) {
-            if let dst = inputBuffer.floatChannelData?[channel] {
-                rawSamples.withUnsafeBufferPointer { src in
-                    if let base = src.baseAddress {
-                        memcpy(dst, base, rawSamples.count * MemoryLayout<Float>.size)
-                    }
+        if let dst = inputBuffer.floatChannelData?[0] {
+            rawSamples.withUnsafeBufferPointer { src in
+                if let base = src.baseAddress {
+                    memcpy(dst, base, rawSamples.count * MemoryLayout<Float>.size)
                 }
             }
         }
         
         // 2. Convert to 16kHz mono
         let targetFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 16000, channels: 1, interleaved: false)!
-        guard let converter = AVAudioConverter(from: inputFormat, to: targetFormat) else {
+        guard let converter = AVAudioConverter(from: sourceFormat, to: targetFormat) else {
             throw NSError(domain: "AudioRecorder", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to create converter"])
         }
         
@@ -252,14 +280,14 @@ public final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBuffer
             return ([], 0)
         }
         
-        let convState = ConversionState()
+        let consumed = SendableFlag()
         let status = converter.convert(to: outputBuffer, error: nil) { inNumPackets, outStatus in
-            if convState.inputDone {
+            if consumed.value {
                 outStatus.pointee = .noDataNow
                 return nil
             }
             outStatus.pointee = .haveData
-            convState.inputDone = true
+            consumed.value = true
             return inputBuffer
         }
         
@@ -281,24 +309,48 @@ public final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBuffer
     }
     
     private func saveLastRecording(_ buffer: AVAudioPCMBuffer) {
-        let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent("last_recording.wav")
         do {
-            if FileManager.default.fileExists(atPath: fileURL.path) {
-                try FileManager.default.removeItem(at: fileURL)
+            let targetURL = try ensureLastRecordingURL()
+            let tempURL = targetURL.appendingPathExtension("tmp")
+            if FileManager.default.fileExists(atPath: tempURL.path) {
+                try FileManager.default.removeItem(at: tempURL)
             }
-            let file = try AVAudioFile(forWriting: fileURL, settings: buffer.format.settings)
+            let file = try AVAudioFile(forWriting: tempURL, settings: buffer.format.settings)
             try file.write(from: buffer)
-            self.lastRecordingURL = fileURL
+            if FileManager.default.fileExists(atPath: targetURL.path) {
+                _ = try FileManager.default.replaceItemAt(targetURL, withItemAt: tempURL)
+            } else {
+                try FileManager.default.moveItem(at: tempURL, to: targetURL)
+            }
+            self.lastRecordingURL = targetURL
         } catch {
             logger.error("Failed to save last recording: \(error.localizedDescription)")
         }
     }
     
+    private func ensureLastRecordingURL() throws -> URL {
+        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        let directory = caches.appendingPathComponent(cacheDirectoryName, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory.appendingPathComponent(lastRecordingFilename)
+    }
+    
     public func getLastRecordingURL() -> URL? {
-        return lastRecordingURL
+        if let url = lastRecordingURL {
+            return url
+        }
+        return try? ensureLastRecordingURL()
+    }
+    
+    public func clearLastRecording() {
+        if let url = try? ensureLastRecordingURL() {
+            try? FileManager.default.removeItem(at: url)
+        }
+        lastRecordingURL = nil
     }
 }
 
-private final class ConversionState: @unchecked Sendable {
-    var inputDone = false
+/// Sendable mutable flag for use in AVAudioConverter's @Sendable closure.
+private final class SendableFlag: @unchecked Sendable {
+    var value = false
 }

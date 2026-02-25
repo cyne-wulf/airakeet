@@ -31,6 +31,11 @@ public final class PermissionsManager: ObservableObject {
     public func requestMicrophone() async -> Bool {
         let granted = await AVCaptureDevice.requestAccess(for: .audio)
         self.hasMicrophonePermission = granted
+        if granted {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                NSApp?.activate(ignoringOtherApps: true)
+            }
+        }
         return granted
     }
     
