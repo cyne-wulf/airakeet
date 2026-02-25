@@ -5,21 +5,16 @@ set -e
 
 APP_NAME="Airakeet"
 BUNDLE_ID="com.cyne-wulf.airakeet"
-BUILD_PATH=".build/apple/Products/Release" # Default for swift build -c release on macOS
 
 # Build for arm64 (Apple Silicon)
 echo "Building $APP_NAME in release mode (Apple Silicon)..."
 swift build -c release --product Airakeet --arch arm64
 
-BINARY_PATH=".build/arm64-apple-macosx/release/$APP_NAME"
+BUILD_DIR=".build/arm64-apple-macosx/release"
+BINARY_PATH="$BUILD_DIR/$APP_NAME"
 
 if [ ! -f "$BINARY_PATH" ]; then
-    # Fallback for some environment configurations
-    BINARY_PATH=".build/release/$APP_NAME"
-fi
-
-if [ ! -f "$BINARY_PATH" ]; then
-    echo "Error: Binary not found."
+    echo "Error: Binary not found at $BINARY_PATH"
     exit 1
 fi
 
@@ -39,6 +34,10 @@ else
     ICON_ENTRY=""
 fi
 
+# CRITICAL FIX: Copy dependency resource bundles to prevent crashes in Bundle.module
+echo "Embedding resource bundles..."
+find "$BUILD_DIR" -name "*.bundle" -maxdepth 1 -exec cp -R {} "$APP_NAME.app/Contents/Resources/" \;
+
 # Create Info.plist
 cat > "$APP_NAME.app/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -54,7 +53,7 @@ cat > "$APP_NAME.app/Contents/Info.plist" <<EOF
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.5.2</string>
+    <string>1.5.3</string>
     <key>LSUIElement</key>
     <true/>
     <key>NSMicrophoneUsageDescription</key>

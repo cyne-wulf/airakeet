@@ -272,15 +272,22 @@ final class UpdateManager: NSObject {
         }
         
         do {
-            let backupName = destinationURL.lastPathComponent + ".previous"
-            let backupURL = try FileManager.default.replaceItemAt(destinationURL, withItemAt: tempBundleURL, backupItemName: backupName)
-            if let backupURL {
-                try? FileManager.default.removeItem(at: backupURL)
+            // Use ditto to replace the bundle instead of atomic swap
+            // This is often more reliable for open application bundles
+            let ditto = Process()
+            ditto.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+            ditto.arguments = [tempBundleURL.path, destinationURL.path]
+            try ditto.run()
+            ditto.waitUntilExit()
+            
+            if ditto.terminationStatus != 0 {
+                throw UpdateError.installFailed
             }
+            
             return destinationURL
         } catch {
-            let downloads = FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent("Downloads")
+            print("Airakeet: In-place update failed, trying fallback to Downloads: \(error)")
+            let downloads = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first!
             let fallbackURL = downloads.appendingPathComponent("Airakeet-\(version).app")
             if copyAppBundle(tempBundleURL, to: fallbackURL) {
                 throw UpdateError.installPermissionDenied(destination: destinationURL, savedCopy: fallbackURL)
