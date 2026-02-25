@@ -195,7 +195,6 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     private func deferASRWarmupIfNeeded() {
         guard !hasPerformedInitialWarmup else { return }
         guard deferredInitializationTask == nil else { return }
-        guard permissions.hasMicrophonePermission && permissions.hasAccessibilityPermission else { return }
         
         deferredInitializationTask = Task { [weak self] in
             defer { self?.deferredInitializationTask = nil }
