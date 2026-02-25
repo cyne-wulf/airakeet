@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Airakeet — Local-First Dictation Engine</title>
-  <meta name="description" content="Airakeet is an ultra-efficient, local-first dictation app built for the 8GB MacBook Air. Portfolio page by a computer science student.">
+  <meta name="description" content="Airakeet is an ultra-efficient, local-first dictation app for Apple Silicon. See the roadmap, engine details, and download links.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -33,10 +33,10 @@
         <p class="eyebrow highlight">Menubar dictation · Local-first build</p>
         <h1>The uncompromising transcription tool for base-model Apple Silicon.</h1>
         <p class="lede">
-          Airakeet wraps NVIDIA's Parakeet ASR into a silky macOS menubar experience that unloads in idle, hugs 8GB of RAM, and keeps every word on-device.
+          Airakeet wraps NVIDIA's Parakeet ASR into a silky macOS menubar experience that unloads when idle, respects 8GB RAM ceilings, and keeps every word on-device.
         </p>
         <div class="cta-group">
-          <a class="btn primary" href="https://github.com/cyne-wulf/airakeet/releases" target="_blank" rel="noreferrer">Download the App</a>
+          <a class="btn primary" href="https://github.com/cyne-wulf/airakeet/releases" target="_blank" rel="noreferrer">Download the App (2.73mb)</a>
           <a class="btn secondary" href="https://github.com/cyne-wulf/airakeet" target="_blank" rel="noreferrer">View Source</a>
         </div>
         <div class="hero-stats">
@@ -73,7 +73,7 @@
     <section class="section" id="features">
       <div class="section-header">
         <p class="eyebrow">Why it matters</p>
-        <h2>Designed around the 8GB MacBook Air constraint.</h2>
+        <h2>Designed around the constraints of an 8GB MacBook Air.</h2>
         <p class="lede">Most dictation apps idle at 2–3GB. Airakeet uses aggressive unloads, streaming buffers, and CoreML tuning to stay invisible until you need it.</p>
       </div>
       <div class="feature-grid">
@@ -87,7 +87,7 @@
         </article>
         <article class="feature-card">
           <h3>Waveform overlay</h3>
-          <p>A translucent HUD follows your cursor with a live waveform. It's fully color-customizable, echoing Superwhisper's UX.</p>
+          <p>A translucent HUD follows your cursor with a live waveform. Plus, it's fully color-customizable</p>
         </article>
         <article class="feature-card">
           <h3>Clipboard injection</h3>
@@ -107,7 +107,7 @@
     <section class="section highlight" id="engineering">
       <div class="section-header">
         <p class="eyebrow">Engineering story</p>
-        <h2>Systems thinking for a solo native build.</h2>
+        <h2>Systems thinking for a pure native build.</h2>
         <p class="lede">From CoreML conversion to macOS UX polish, Airakeet is a full-stack native build that spotlights low-level craftsmanship.</p>
       </div>
       <div class="split">
@@ -133,6 +133,71 @@
       </div>
     </section>
 
+    <section class="section" id="models">
+      <div class="section-header">
+        <p class="eyebrow">Under the hood</p>
+        <h2>Built on NVIDIA Parakeet, tuned for everyday workflows.</h2>
+        <p class="lede">Parakeet is NVIDIA’s speech model family converted to CoreML. Think of it as a musician trained on billions of sentences who performs directly on your Mac instead of on a cloud stage.</p>
+      </div>
+      <div class="model-grid">
+        <article class="model-card">
+          <h3>What Parakeet brings</h3>
+          <ul class="model-points">
+            <li><strong>Accent friendly.</strong> Trained on noisy, multi-accent corpora so code-switching and filler words aren’t dropped.</li>
+            <li><strong>ANE-ready tensors.</strong> Converted into CoreML operators that map cleanly to the Apple Neural Engine.</li>
+            <li><strong>Streaming aware.</strong> Supports chunk-by-chunk inference without waiting for full clips.</li>
+          </ul>
+        </article>
+        <article class="model-card">
+          <h3>Future engines</h3>
+          <p>The 1.1B Parakeet-EOU build will unlock live dictation with punctuation, multilingual translation, and smarter “keep listening” behavior without adding cloud latency.</p>
+          <div class="pill-group">
+            <span class="pill">Parakeet TDT 0.6B</span>
+            <span class="pill">Parakeet EOU 1.1B</span>
+            <span class="pill">NVIDIA Canary</span>
+          </div>
+        </article>
+      </div>
+      <div class="model-compare">
+        <h3>Parakeet vs Local Whisper (both running on-device)</h3>
+        <div class="compare-table">
+          <div class="compare-row">
+            <p class="label">Latency target</p>
+            <div>
+              <p class="compare-title">Parakeet</p>
+              <p>Optimized for low-latency partials so you see text mid-sentence.</p>
+            </div>
+            <div>
+              <p class="compare-title">Local Whisper</p>
+              <p>Batch-first decoding introduces a pause before the first characters appear.</p>
+            </div>
+          </div>
+          <div class="compare-row">
+            <p class="label">Hardware sweet spot</p>
+            <div>
+              <p class="compare-title">Parakeet</p>
+              <p>Runs comfortably on the Apple Neural Engine with 8GB RAM.</p>
+            </div>
+            <div>
+              <p class="compare-title">Local Whisper</p>
+              <p>Prefers discrete GPU or 16GB+ unified memory to stay smooth.</p>
+            </div>
+          </div>
+          <div class="compare-row">
+            <p class="label">Streaming feel</p>
+            <div>
+              <p class="compare-title">Parakeet</p>
+              <p>Designed for incremental injection with ANE offload.</p>
+            </div>
+            <div>
+              <p class="compare-title">Local Whisper</p>
+              <p>Often buffers a full sentence before emitting, so text arrives in bursts.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="section" id="roadmap">
       <div class="section-header">
         <p class="eyebrow">Forward-looking</p>
@@ -152,6 +217,19 @@
           <h3>Phase 3 · Hardware validation</h3>
           <p>Benchmark M5 hardware, monitor thermals, and explore NVIDIA Canary for multilingual translation.</p>
         </article>
+      </div>
+      <div class="eou-highlight">
+        <div>
+          <p class="badge badge-outline">Future: Streaming engine</p>
+          <h3>Queued for my next hardware upgrade.</h3>
+          <p class="future-note">Rolls out once I’m on a new 32GB MacBook Air so the 1.1B model fits comfortably—nothing required on your end.</p>
+        </div>
+        <p class="lede">With this update you’ll be able to choose between today’s ultra-efficient 0.6B engine and a higher-capacity Parakeet EOU 1.1B build. That bigger model will enable true word-by-word streaming and EOU (End of Utterance) timing so Airakeet feels like it’s reading your mind.</p>
+        <ul class="eou-points">
+          <li><strong>Words appear as you speak:</strong> Streaming injection means paragraphs grow in the active text field without waiting for the clip to finish.</li>
+          <li><strong>EOU = natural pauses:</strong> The engine listens for the tiny silence after each thought, then auto-stops recording with punctuation so you never overshoot a sentence.</li>
+          <li><strong>Instant re-entry:</strong> If you keep talking, the future engine jumps back into capture without reloading gigabytes of weights.</li>
+        </ul>
       </div>
     </section>
 
