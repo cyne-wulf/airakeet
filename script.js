@@ -7,15 +7,77 @@ const accentPairs = [
 ];
 let colorIndex = 0;
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+let currentPrimary = accentPairs[0][0];
+let currentSecondary = accentPairs[0][1];
 
-root.style.setProperty('--accent', accentPairs[0][0]);
-root.style.setProperty('--accent-2', accentPairs[0][1]);
+setAccentColors(currentPrimary, currentSecondary);
+
+function hexToRgb(hex) {
+  const normalized = hex.replace('#', '');
+  const bigint = parseInt(normalized, 16);
+  return normalized.length === 3
+    ? [
+        (bigint >> 8) & 0xf,
+        (bigint >> 4) & 0xf,
+        bigint & 0xf
+      ].map(v => v * 17)
+    : [
+        (bigint >> 16) & 255,
+        (bigint >> 8) & 255,
+        bigint & 255
+      ];
+}
+
+function rgbToString(rgb) {
+  return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+}
+
+function lerpColor(start, end, t) {
+  return start.map((value, index) => Math.round(value + (end[index] - value) * t));
+}
+
+function setAccentColors(primary, secondary) {
+  root.style.setProperty('--accent', primary);
+  root.style.setProperty('--accent-2', secondary);
+}
+
+function animateAccent(primary, secondary) {
+  if (reducedMotion) {
+    setAccentColors(primary, secondary);
+    currentPrimary = primary;
+    currentSecondary = secondary;
+    return;
+  }
+
+  const startPrimary = hexToRgb(currentPrimary);
+  const startSecondary = hexToRgb(currentSecondary);
+  const endPrimary = hexToRgb(primary);
+  const endSecondary = hexToRgb(secondary);
+  const duration = 1200;
+  const startTime = performance.now();
+
+  function update(now) {
+    const progress = Math.min((now - startTime) / duration, 1);
+    const eased = progress * (2 - progress); // easeOutQuad
+    const interpolatedPrimary = lerpColor(startPrimary, endPrimary, eased);
+    const interpolatedSecondary = lerpColor(startSecondary, endSecondary, eased);
+    root.style.setProperty('--accent', rgbToString(interpolatedPrimary));
+    root.style.setProperty('--accent-2', rgbToString(interpolatedSecondary));
+    if (progress < 1) {
+      requestAnimationFrame(update);
+    } else {
+      currentPrimary = primary;
+      currentSecondary = secondary;
+    }
+  }
+
+  requestAnimationFrame(update);
+}
 
 function rotateAccent() {
   colorIndex = (colorIndex + 1) % accentPairs.length;
   const [primary, secondary] = accentPairs[colorIndex];
-  root.style.setProperty('--accent', primary);
-  root.style.setProperty('--accent-2', secondary);
+  animateAccent(primary, secondary);
 }
 
 if (!reducedMotion) {
