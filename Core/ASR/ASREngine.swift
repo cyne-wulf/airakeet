@@ -22,6 +22,7 @@ public struct TranscriptionResult: Sendable {
 public protocol ASREngineDelegate: AnyObject, Sendable {
     func asrEngineDidUpdateStatus(_ status: ASREngineStatus)
     func asrEngineDidUpdateProgress(_ progress: Double)
+    func asrEngineDidUpdateLoadLog(_ log: String)
 }
 
 public enum ASREngineStatus: String, Sendable {
@@ -68,27 +69,44 @@ public final class ASREngine: Sendable {
     public func loadModel() async throws {
         await updateStatus(.loading)
         await updateProgress(0.0)
+        await clearLog()
+        
+        await appendLog("Starting Airakeet Engine initialization...")
+        await appendLog("Targeting NVIDIA Parakeet TDT 0.6B (v2)")
         
         do {
-            logger.info("Downloading/Loading Airakeet models (v2)...")
-            
-            // Note: FluidAudio doesn't give us granular progress for download yet,
-            // but we can simulate steps: 1. Download, 2. Initialize
+            await appendLog("Checking local cache...")
             await updateProgress(0.1)
+            
+            // We use a custom loading flow to provide more feedback
+            let cacheDir = AsrModels.defaultCacheDirectory(for: .v2)
+            await appendLog("Cache directory: \(cacheDir.lastPathComponent)")
+            
+            if AsrModels.modelsExist(at: cacheDir, version: .v2) {
+                await appendLog("Cached models found. Starting compilation...")
+                await updateProgress(0.3)
+            } else {
+                await appendLog("Models missing. Initiating HuggingFace download (~800MB)...")
+                await appendLog("This may take a few minutes depending on your internet speed.")
+                await updateProgress(0.2)
+            }
+            
             let models = try await AsrModels.downloadAndLoad(version: .v2)
-            await updateProgress(0.8)
+            await appendLog("All components loaded and compiled successfully.")
+            await updateProgress(0.9)
             
             let manager = AsrManager(config: .default)
             try await manager.initialize(models: models)
             
             let wrapper = AsrManagerWrapper(manager: manager)
             await managerContainer.initialize(with: wrapper)
+            
+            await appendLog("ASR Manager initialized. Ready for dictation.")
             await updateStatus(.ready)
             await updateProgress(1.0)
-            logger.info("ASREngine ready.")
         } catch {
+            await appendLog("ERROR: \(error.localizedDescription)")
             await updateStatus(.error)
-            logger.error("Failed to initialize ASREngine: \(error.localizedDescription)")
             throw error
         }
     }
@@ -98,7 +116,7 @@ public final class ASREngine: Sendable {
         let cacheDir = AsrModels.defaultCacheDirectory(for: .v2)
         if FileManager.default.fileExists(atPath: cacheDir.path) {
             try FileManager.default.removeItem(at: cacheDir)
-            logger.info("Airakeet: Model cache deleted at \(cacheDir.path)")
+            await appendLog("Model cache deleted.")
         }
         await updateStatus(.idle)
         await updateProgress(0.0)
@@ -138,17 +156,30 @@ public final class ASREngine: Sendable {
     private func updateStatus(_ status: ASREngineStatus) async {
         await state.updateStatus(status)
         if let d = await state.delegate {
-            await MainActor.run {
-                d.asrEngineDidUpdateStatus(status)
-            }
+            await MainActor.run { d.asrEngineDidUpdateStatus(status) }
         }
     }
     
     private func updateProgress(_ progress: Double) async {
         if let d = await state.delegate {
-            await MainActor.run {
-                d.asrEngineDidUpdateProgress(progress)
-            }
+            await MainActor.run { d.asrEngineDidUpdateProgress(progress) }
+        }
+    }
+    
+    private func appendLog(_ message: String) async {
+        let timestamp = Date().formatted(date: .omitted, time: .standard)
+        let formattedMessage = "[\(timestamp)] \(message)\n"
+        await state.appendLog(formattedMessage)
+        if let d = await state.delegate {
+            let fullLog = await state.loadLog
+            await MainActor.run { d.asrEngineDidUpdateLoadLog(fullLog) }
+        }
+    }
+    
+    private func clearLog() async {
+        await state.clearLog()
+        if let d = await state.delegate {
+            await MainActor.run { d.asrEngineDidUpdateLoadLog("") }
         }
     }
 }
@@ -156,6 +187,7 @@ public final class ASREngine: Sendable {
 actor EngineState {
     var status: ASREngineStatus = .idle
     weak var delegate: ASREngineDelegate?
+    var loadLog: String = ""
     
     func updateStatus(_ status: ASREngineStatus) {
         self.status = status
@@ -163,6 +195,14 @@ actor EngineState {
     
     func setDelegate(_ delegate: ASREngineDelegate?) {
         self.delegate = delegate
+    }
+    
+    func appendLog(_ message: String) {
+        self.loadLog += message
+    }
+    
+    func clearLog() {
+        self.loadLog = ""
     }
 }
 

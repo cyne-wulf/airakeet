@@ -39,6 +39,7 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     @Published var lastResult: TranscriptionResult?
     @Published var status: ASREngineStatus = .idle
     @Published var loadProgress: Double = 0
+    @Published var loadLog: String = ""
     @Published var isRecording = false
     @Published var currentPower: Float = 0
     @Published var mode: RecordingMode = .toggle
@@ -299,6 +300,10 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     
     func asrEngineDidUpdateProgress(_ progress: Double) {
         self.loadProgress = progress
+    }
+    
+    func asrEngineDidUpdateLoadLog(_ log: String) {
+        self.loadLog = log
     }
     
     // MARK: - Actions

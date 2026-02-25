@@ -46,6 +46,21 @@ struct DebugWindowView: View {
                     Text("\(Int(controller.loadProgress * 100))%")
                         .font(.caption2)
                         .foregroundColor(.secondary)
+                    
+                    Text("Initialization Logs:")
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                        .padding(.top, 4)
+                    
+                    ScrollView {
+                        Text(controller.loadLog)
+                            .font(.system(size: 10, design: .monospaced))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(height: 100)
+                    .padding(4)
+                    .background(Color.black.opacity(0.05))
+                    .cornerRadius(4)
                 }
             }
             
