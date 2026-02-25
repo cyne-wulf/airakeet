@@ -5,16 +5,18 @@ struct DebugWindowView: View {
     @ObservedObject var controller: AppController
     
     var body: some View {
-        VStack(spacing: 20) {
-            headerSection
-            statusSection
-            controlsSection
-            resultsSection
-            modelManagementSection
-            permissionsSection
+        ScrollView {
+            VStack(spacing: 20) {
+                headerSection
+                statusSection
+                controlsSection
+                resultsSection
+                modelManagementSection
+                permissionsSection
+            }
+            .padding()
         }
-        .padding()
-        .frame(width: 400, height: 750)
+        .frame(minWidth: 400, maxWidth: 400, minHeight: 400, maxHeight: 800)
     }
     
     var headerSection: some View {
@@ -306,8 +308,8 @@ class DebugWindow: NSWindow {
         }
         
         let window = DebugWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 400, height: 750),
-            styleMask: [.titled, .closable, .miniaturizable],
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 600),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
