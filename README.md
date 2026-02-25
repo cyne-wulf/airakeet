@@ -20,6 +20,8 @@ I built this because I was tired of "lightweight" dictation apps that still cons
 - **Custom Appearance:** Choose your own waveform color to match your setup.
 - **Configurable Hotkeys:** Support for standard Mac shortcuts, custom `Fn + Key` combos, and a specialized `Shift + Fn` trigger.
 - **Audio Cache:** "Play Last Recording" feature in the debug menu to verify what the engine heard (disk-cached to save RAM).
+- **Model Management:** Manually reload or delete the ~800MB model cache from the Debug menu for testing or space management.
+- **Verbose Initialization:** Real-time log viewer during first-install or model loading to track download and compilation progress.
 - **Direct Injection:** Transcribes audio and injects text via Clipboard + CMD+V.
 - **Fast:** ~45x real-time factor on Apple M2 (0.11s for 5s of audio).
 
