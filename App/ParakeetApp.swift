@@ -263,6 +263,14 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
         print("Airakeet: Last transcript copied to clipboard.")
     }
     
+    func asrEngineForFile() -> ASREngine {
+        return asrEngine
+    }
+    
+    func openFileTranscriptionWindow() {
+        FileTranscriptionWindow.show(controller: self)
+    }
+    
     func refreshDevices() {
         self.availableDevices = AudioRecorder.availableDevices()
     }
@@ -522,7 +530,7 @@ class StatusBarManager {
     @objc func copyLast() { controller.copyLastTranscript() }
     @objc func toggleLaunch() { controller.toggleStartAtLogin() }
     @objc func openHotkey() { controller.openHotkeySettings() }
-    @objc func openFile() { controller.transcribeAudioFile() }
+    @objc func openFile() { controller.openFileTranscriptionWindow() }
     @objc func changeMode(_ sender: NSMenuItem) {
         if let mode = sender.representedObject as? RecordingMode {
             controller.changeMode(mode)
