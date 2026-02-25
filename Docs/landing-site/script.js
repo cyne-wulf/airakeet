@@ -23,6 +23,7 @@ if (!reducedMotion) {
 }
 
 const stats = document.querySelectorAll('[data-stat]');
+const wavePreview = document.querySelector('[data-wave]');
 
 function animateValue(el) {
   const target = parseFloat(el.dataset.stat);
@@ -53,6 +54,25 @@ if ('IntersectionObserver' in window) {
   stats.forEach(stat => observer.observe(stat));
 } else {
   stats.forEach(stat => stat.textContent = stat.dataset.stat);
+}
+
+if (wavePreview) {
+  const bars = 28;
+  for (let i = 0; i < bars; i += 1) {
+    const bar = document.createElement('span');
+    const delay = i * 70;
+    const duration = 1100 + Math.random() * 700;
+    const base = 35 + Math.random() * 55;
+    bar.style.setProperty('--delay', `${delay}ms`);
+    bar.style.setProperty('--duration', `${duration}ms`);
+    bar.style.height = `${base}%`;
+    wavePreview.appendChild(bar);
+  }
+  if (reducedMotion) {
+    wavePreview.querySelectorAll('span').forEach(span => {
+      span.style.animation = 'none';
+    });
+  }
 }
 
 const year = document.getElementById('year');
