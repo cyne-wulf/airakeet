@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Airakeet — Local-First Dictation Engine</title>
+  <meta name="description" content="Airakeet is an ultra-efficient, local-first dictation app built for the 8GB MacBook Air. Portfolio page by a computer science student.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="background-noise" aria-hidden="true"></div>
+  <header class="hero" id="top">
+    <nav>
+      <div class="brand">
+        <img class="logo-squircle" src="../../Final-icon.png" alt="Airakeet icon" width="64" height="64">
+        <div>
+          <p class="eyebrow">Airakeet</p>
+          <p class="sublabel">Local-first dictation</p>
+        </div>
+      </div>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#engineering">Engineering</a>
+        <a href="#roadmap">Roadmap</a>
+        <a href="#cta">Download</a>
+      </div>
+    </nav>
+    <div class="hero-grid">
+      <div class="hero-copy">
+        <p class="eyebrow highlight">Menubar dictation · Local-first build</p>
+        <h1>The uncompromising transcription tool for base-model Apple Silicon.</h1>
+        <p class="lede">
+          Airakeet wraps NVIDIA's Parakeet ASR into a silky macOS menubar experience that unloads in idle, hugs 8GB of RAM, and keeps every word on-device.
+        </p>
+        <div class="cta-group">
+          <a class="btn primary" href="https://github.com/cyne-wulf/airakeet/releases" target="_blank" rel="noreferrer">Download the App</a>
+          <a class="btn secondary" href="https://github.com/cyne-wulf/airakeet" target="_blank" rel="noreferrer">View Source</a>
+        </div>
+        <div class="hero-stats">
+          <div class="stat-card">
+            <p class="stat" data-stat="800">0</p>
+            <p class="label">MB model footprint unloaded when idle</p>
+          </div>
+          <div class="stat-card">
+            <p class="stat" data-stat="45">0</p>
+            <p class="label">× real-time factor on M2 MacBook Air</p>
+          </div>
+          <div class="stat-card">
+            <p class="stat" data-stat="5">0</p>
+            <p class="label">minute auto-off to return all RAM</p>
+          </div>
+        </div>
+      </div>
+      <div class="hero-visual" aria-hidden="true">
+        <div class="visual-glow"></div>
+        <div class="device-card">
+          <p class="badge">Menubar overlay</p>
+          <h3>Reactive Waveform</h3>
+          <p>
+            Liquid motion overlay pulses with the amplitude of your voice. Colors are customizable, so the UI mirrors your setup.
+          </p>
+          <div class="wave-preview" data-wave></div>
+          <p class="microcopy">Runs entirely on the Apple Neural Engine.</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="section" id="features">
+      <div class="section-header">
+        <p class="eyebrow">Why it matters</p>
+        <h2>Designed around the 8GB MacBook Air constraint.</h2>
+        <p class="lede">Most dictation apps idle at 2–3GB. Airakeet uses aggressive unloads, streaming buffers, and CoreML tuning to stay invisible until you need it.</p>
+      </div>
+      <div class="feature-grid">
+        <article class="feature-card">
+          <h3>Zero-overhead idle</h3>
+          <p>The 800MB Parakeet model is evicted after five minutes of inactivity, returning memory to the OS automatically.</p>
+        </article>
+        <article class="feature-card">
+          <h3>ANE-first execution</h3>
+          <p>Inference runs exclusively on the Apple Neural Engine, keeping the CPU free and the laptop fanless during long sessions.</p>
+        </article>
+        <article class="feature-card">
+          <h3>Waveform overlay</h3>
+          <p>A translucent HUD follows your cursor with a live waveform. It's fully color-customizable, echoing Superwhisper's UX.</p>
+        </article>
+        <article class="feature-card">
+          <h3>Clipboard injection</h3>
+          <p>Dictation drops straight into the active text field using Clipboard + CMD+V—no extra permissions, no network.</p>
+        </article>
+        <article class="feature-card">
+          <h3>Configurable hotkeys</h3>
+          <p>Supports standard shortcuts, Fn combos, and a dedicated Shift+Fn gesture for quick starts even on compact keyboards.</p>
+        </article>
+        <article class="feature-card">
+          <h3>Audio cache & debug</h3>
+          <p>Replay exactly what the engine heard via a safety cache so you can validate inputs without uploading sensitive data.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section highlight" id="engineering">
+      <div class="section-header">
+        <p class="eyebrow">Engineering story</p>
+        <h2>Systems thinking for a solo native build.</h2>
+        <p class="lede">From CoreML conversion to macOS UX polish, Airakeet is a full-stack native build that spotlights low-level craftsmanship.</p>
+      </div>
+      <div class="split">
+        <div>
+          <ul class="checklist">
+            <li><span>🧠</span><div><h4>Model distillation</h4><p>Converted NVIDIA Parakeet TDT 0.6B to CoreML with quantization and ANE-friendly ops.</p></div></li>
+            <li><span>🛡</span><div><h4>Security-first footprint</h4><p>Menubar-only surface, no analytics, and scoped macOS permissions keep the threat model tiny.</p></div></li>
+            <li><span>🎛</span><div><h4>Hotkey architecture</h4><p>Custom event tap avoids global listeners to reduce CPU wakeups while preserving instant response.</p></div></li>
+            <li><span>🧊</span><div><h4>Memory choreography</h4><p>Extract-and-clear buffers plus timed auto-unload keep RAM usage flat during long recordings.</p></div></li>
+          </ul>
+        </div>
+        <div class="gradient-card">
+          <p class="eyebrow">Results</p>
+          <h3>Feels like hardware, not software.</h3>
+          <p>Transcribes five seconds of speech in 0.11s, injects text instantly, and stays invisible until summoned. Perfect companion for essays, code reviews, or meeting notes.</p>
+          <div class="pill-group">
+            <span class="pill">Swift + AppKit</span>
+            <span class="pill">CoreML</span>
+            <span class="pill">Metal Performance Shaders</span>
+            <span class="pill">AudioKit</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="roadmap">
+      <div class="section-header">
+        <p class="eyebrow">Forward-looking</p>
+        <h2>Dual-engine roadmap for future Apple Silicon.</h2>
+        <p class="lede">High-tier work resumes when I upgrade to a 32GB MacBook Air so I can validate the 1.1B model end-to-end.</p>
+      </div>
+      <div class="timeline">
+        <article>
+          <h3>Phase 1 · Engine abstraction</h3>
+          <p>Refactor `ASREngine` to load either 0.6B or 1.1B models on demand and prevent RAM collisions.</p>
+        </article>
+        <article>
+          <h3>Phase 2 · Live injection</h3>
+          <p>Streaming text, word-by-word insertion, and silence detection using Parakeet-EOU for instant feedback.</p>
+        </article>
+        <article>
+          <h3>Phase 3 · Hardware validation</h3>
+          <p>Benchmark M5 hardware, monitor thermals, and explore NVIDIA Canary for multilingual translation.</p>
+        </article>
+      </div>
+    </section>
+
+  </main>
+
+  <section class="cta" id="cta">
+    <div class="cta-card">
+      <p class="eyebrow">Ready when you are</p>
+      <h2>Keep your voice on your device.</h2>
+      <p>Clone it, fork it, or ship it as-is. Airakeet is MIT licensed and built to be remixed.</p>
+      <div class="cta-group">
+        <a class="btn primary" href="https://github.com/cyne-wulf/airakeet/releases" target="_blank" rel="noreferrer">Get the build</a>
+        <a class="btn secondary" href="https://github.com/cyne-wulf/airakeet" target="_blank" rel="noreferrer">Contribute on GitHub</a>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>© <span id="year"></span> Airakeet · Crafted for 8GB MacBook Air owners · Ashan Devine.</p>
+    <div class="footer-links">
+      <a href="#top">Back to top</a>
+      <a href="https://github.com/cyne-wulf/airakeet" target="_blank" rel="noreferrer">Repository</a>
+    </div>
+  </footer>
+
+  <script src="script.js" defer></script>
+</body>
+</html>
