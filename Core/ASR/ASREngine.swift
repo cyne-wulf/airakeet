@@ -44,6 +44,10 @@ public final class AsrManagerWrapper: @unchecked Sendable {
     public func transcribe(_ samples: [Float]) async throws -> ASRResult {
         return try await manager.transcribe(samples)
     }
+    
+    public func transcribe(_ url: URL) async throws -> ASRResult {
+        return try await manager.transcribe(url, source: .system)
+    }
 }
 
 public final class ASREngine: Sendable {
@@ -78,7 +82,6 @@ public final class ASREngine: Sendable {
             await appendLog("Checking local cache...")
             await updateProgress(0.1)
             
-            // We use a custom loading flow to provide more feedback
             let cacheDir = AsrModels.defaultCacheDirectory(for: .v2)
             await appendLog("Cache directory: \(cacheDir.lastPathComponent)")
             
@@ -149,6 +152,40 @@ public final class ASREngine: Sendable {
         } catch {
             await updateStatus(.error)
             logger.error("Transcription failed: \(error.localizedDescription)")
+            throw error
+        }
+    }
+    
+    public func transcribe(url: URL) async throws -> TranscriptionResult {
+        guard let wrapper = await managerContainer.getWrapper() else {
+            throw NSError(domain: "ASREngine", code: 1, userInfo: [NSLocalizedDescriptionKey: "ASREngine not initialized"])
+        }
+        
+        let startTotal = Date()
+        await updateStatus(.transcribing)
+        
+        do {
+            let startInference = Date()
+            let result = try await wrapper.transcribe(url)
+            let endInference = Date()
+            
+            // For files, we don't have the audio duration as easily without loading it,
+            // but result might have it if the SDK provides it.
+            // For now we'll estimate or use 0.
+            let transcriptionTime = endInference.timeIntervalSince(startInference)
+            let totalTime = endInference.timeIntervalSince(startTotal)
+            
+            let metrics = TranscriptionMetrics(
+                audioDuration: 0, 
+                transcriptionTime: transcriptionTime,
+                totalTime: totalTime
+            )
+            
+            await updateStatus(.ready)
+            return TranscriptionResult(text: result.text, metrics: metrics)
+        } catch {
+            await updateStatus(.error)
+            logger.error("File transcription failed: \(error.localizedDescription)")
             throw error
         }
     }

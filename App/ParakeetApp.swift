@@ -5,6 +5,7 @@ import AVFoundation
 import KeyboardShortcuts
 import Combine
 import ServiceManagement
+import UniformTypeIdentifiers
 
 @main
 struct AirakeetApp: App {
@@ -226,6 +227,34 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
         }
     }
     
+    func transcribeAudioFile() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [.audio, .mp3, .wav, .mpeg4Audio]
+        panel.title = "Select Audio File"
+        
+        NSApp.activate(ignoringOtherApps: true)
+        let response = panel.runModal()
+        
+        if response == .OK, let url = panel.url {
+            Task {
+                do {
+                    try await asrEngine.ensureInitialized()
+                    // Show overlay for feedback
+                    OverlayWindow.show(view: AnyView(RecordingOverlayView(controller: self)))
+                    
+                    let result = try await asrEngine.transcribe(url: url)
+                    self.lastResult = result
+                    injector.inject(result.text)
+                } catch {
+                    print("Airakeet: File transcription error: \(error)")
+                    OverlayWindow.hide()
+                }
+            }
+        }
+    }
+    
     func copyLastTranscript() {
         guard let text = lastResult?.text else { return }
         let pasteboard = NSPasteboard.general
@@ -425,6 +454,10 @@ class StatusBarManager {
         hotkeyItem.target = self
         menu.addItem(hotkeyItem)
         
+        let fileItem = NSMenuItem(title: "Transcribe Audio File...", action: #selector(openFile), keyEquivalent: "o")
+        fileItem.target = self
+        menu.addItem(fileItem)
+        
         // Start at Login
         let launchItem = NSMenuItem(title: "Start at Login", action: #selector(toggleLaunch), keyEquivalent: "")
         launchItem.target = self
@@ -489,6 +522,7 @@ class StatusBarManager {
     @objc func copyLast() { controller.copyLastTranscript() }
     @objc func toggleLaunch() { controller.toggleStartAtLogin() }
     @objc func openHotkey() { controller.openHotkeySettings() }
+    @objc func openFile() { controller.transcribeAudioFile() }
     @objc func changeMode(_ sender: NSMenuItem) {
         if let mode = sender.representedObject as? RecordingMode {
             controller.changeMode(mode)
