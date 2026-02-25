@@ -149,8 +149,10 @@ h3 {
 }
 
 .btn.primary {
-  background: linear-gradient(120deg, var(--accent), var(--accent-2));
+  background: linear-gradient(120deg, var(--accent) 0%, var(--accent-2) 60%, #556aff 100%);
   color: #050814;
+  background-size: 120% 100%;
+  background-position: left center;
   box-shadow: 0 20px 40px rgba(110, 255, 198, 0.3);
 }
 
@@ -277,6 +279,80 @@ main {
   margin-top: 3rem;
 }
 
+.model-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.5rem;
+  margin-top: 2.5rem;
+}
+
+.model-card {
+  border-radius: 1.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(8, 12, 28, 0.65);
+  padding: 2rem;
+  box-shadow: 0 20px 40px rgba(4, 6, 18, 0.35);
+}
+
+.model-points {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  color: var(--muted);
+}
+
+.model-points strong {
+  color: var(--text);
+}
+
+.model-compare {
+  margin-top: 2rem;
+  border-radius: 1.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(145deg, rgba(58, 82, 184, 0.35), rgba(6, 12, 28, 0.85));
+  padding: clamp(1.5rem, 4vw, 3rem);
+  box-shadow: 0 25px 60px rgba(4, 6, 16, 0.5);
+}
+
+.compare-table {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-top: 1.5rem;
+}
+
+.compare-row {
+  display: grid;
+  grid-template-columns: 160px 1fr 1fr;
+  gap: 1rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.compare-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.compare-row .label {
+  color: var(--muted);
+  margin: 0;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.compare-title {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.8rem;
+  color: var(--accent);
+  margin: 0 0 0.35rem;
+}
+
 .section-header {
   max-width: 70ch;
 }
@@ -358,6 +434,40 @@ main {
   background: rgba(255, 255, 255, 0.02);
   border-radius: 1.25rem;
   border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.eou-highlight {
+  margin-top: 3rem;
+  border-radius: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: clamp(1.5rem, 4vw, 3rem);
+  background: radial-gradient(circle at 20% 20%, rgba(122, 243, 255, 0.12), transparent 50%),
+              rgba(5, 10, 28, 0.9);
+  box-shadow: 0 30px 60px rgba(3, 5, 16, 0.5);
+}
+
+.badge-outline {
+  border: 1px solid rgba(110, 255, 198, 0.4);
+  background: transparent;
+}
+
+.future-note {
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.eou-points {
+  list-style: none;
+  padding: 0;
+  margin: 1.5rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.eou-points strong {
+  color: var(--text);
 }
 
 .cta {
