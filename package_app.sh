@@ -6,14 +6,20 @@ set -e
 APP_NAME="Airakeet"
 BUNDLE_ID="com.cyne-wulf.airakeet"
 BUILD_PATH=".build/apple/Products/Release" # Default for swift build -c release on macOS
-# But wait, swift build usually puts it in .build/release
-BINARY_PATH=".build/release/Airakeet"
 
-echo "Building $APP_NAME in release mode..."
-swift build -c release --product Airakeet
+# Build for arm64 (Apple Silicon)
+echo "Building $APP_NAME in release mode (Apple Silicon)..."
+swift build -c release --product Airakeet --arch arm64
+
+BINARY_PATH=".build/arm64-apple-macosx/release/$APP_NAME"
 
 if [ ! -f "$BINARY_PATH" ]; then
-    echo "Error: Binary not found at $BINARY_PATH"
+    # Fallback for some environment configurations
+    BINARY_PATH=".build/release/$APP_NAME"
+fi
+
+if [ ! -f "$BINARY_PATH" ]; then
+    echo "Error: Binary not found."
     exit 1
 fi
 
@@ -48,7 +54,7 @@ cat > "$APP_NAME.app/Contents/Info.plist" <<EOF
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.5.0</string>
+    <string>1.5.1</string>
     <key>LSUIElement</key>
     <true/>
     <key>NSMicrophoneUsageDescription</key>

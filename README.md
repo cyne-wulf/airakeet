@@ -29,6 +29,11 @@ I built this because I was tired of "lightweight" dictation apps that still cons
 - **Direct Injection:** Transcribes audio and injects text via Clipboard + CMD+V.
 - **Fast:** ~45x real-time factor on Apple M2 (0.11s for 5s of audio).
 
+## System Requirements
+- Apple Silicon MacBook Air or MacBook Pro (M1/M2/M3 generations)
+- macOS 14 Sonoma or newer
+- Microphone and Accessibility permissions (for audio capture + text injection)
+
 ## Design Decisions
 ### Escape to Cancel
 When the listening overlay is visible, Airakeet temporarily arms a global Escape-key monitor. Pressing Esc immediately abandons the current session, hides the overlay, and skips clipboard injection. The captured audio is still cached on disk, so you can recover it later via **Debug → Play Last Recording**. Because the monitor only exists during active sessions, the idle CPU and security footprint remain effectively zero—perfect for the 8GB-first design goal.

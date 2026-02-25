@@ -162,7 +162,7 @@ struct HotkeySettingsView: View {
             self.localColor = controller.waveformColor
             self.useShiftFn = controller.useShiftFnShortcut
         }
-        .onChange(of: localColor) { _, newColor in
+        .onChange(of: localColor) { newColor in
             controller.updateWaveformColor(newColor)
         }
     }
@@ -172,13 +172,18 @@ struct HotkeySettingsView: View {
 struct KeyEventHandler: NSViewRepresentable {
     @Binding var isListening: Bool
     
-    class Coordinator: NSObject {
+    private final class MonitorWrapper: @unchecked Sendable {
         var monitor: Any?
+    }
+    
+    class Coordinator: NSObject {
+        private let monitorWrapper = MonitorWrapper()
         var isListening: Bool = false
         var onCaptured: ((KeyboardShortcuts.Key) -> Void)?
         
         func startMonitoring() {
-            monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            stopMonitoring()
+            monitorWrapper.monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
                 guard let self = self, self.isListening else { return event }
                 
                 let key = KeyboardShortcuts.Key(rawValue: Int(event.keyCode))
@@ -187,9 +192,19 @@ struct KeyEventHandler: NSViewRepresentable {
             }
         }
         
-        deinit {
-            if let monitor = monitor {
+        func stopMonitoring() {
+            if let monitor = monitorWrapper.monitor {
                 NSEvent.removeMonitor(monitor)
+                monitorWrapper.monitor = nil
+            }
+        }
+        
+        deinit {
+            let monitor = monitorWrapper.monitor
+            if let monitor = monitor {
+                DispatchQueue.main.async {
+                    NSEvent.removeMonitor(monitor)
+                }
             }
         }
     }
@@ -215,10 +230,26 @@ struct KeyEventHandler: NSViewRepresentable {
     }
 }
 
-class HotkeySettingsWindow: NSWindow {
+class HotkeySettingsWindow: NSWindow, NSWindowDelegate {
     static var shared: HotkeySettingsWindow?
+    private static var previousPolicy: NSApplication.ActivationPolicy?
+    
+    // LSUIElement apps cannot show NSColorPanel reliably; temporarily promote to .regular.
+    private static func promoteAppForColorPanelIfNeeded() {
+        guard previousPolicy == nil else { return }
+        previousPolicy = NSApp.activationPolicy()
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+    
+    private static func restoreAppActivationPolicyIfNeeded() {
+        guard let policy = previousPolicy else { return }
+        NSApp.setActivationPolicy(policy)
+        previousPolicy = nil
+    }
     
     static func show(controller: AppController) {
+        promoteAppForColorPanelIfNeeded()
         NSApp.activate(ignoringOtherApps: true)
         
         if let shared = shared {
@@ -236,7 +267,13 @@ class HotkeySettingsWindow: NSWindow {
         window.title = "Hotkey & Appearance"
         window.contentView = NSHostingView(rootView: HotkeySettingsView(controller: controller))
         window.isReleasedWhenClosed = false
+        window.delegate = window
         window.makeKeyAndOrderFront(nil)
         shared = window
+    }
+    
+    func windowWillClose(_ notification: Notification) {
+        HotkeySettingsWindow.shared = nil
+        HotkeySettingsWindow.restoreAppActivationPolicyIfNeeded()
     }
 }

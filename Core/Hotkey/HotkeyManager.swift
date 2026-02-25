@@ -146,11 +146,13 @@ public final class HotkeyManager {
     }
 
     deinit {
-        if let monitor = globalModifierMonitor?.monitor {
-            NSEvent.removeMonitor(monitor)
-        }
-        if let monitor = localModifierMonitor?.monitor {
-            NSEvent.removeMonitor(monitor)
+        let global = globalModifierMonitor?.monitor
+        let local = localModifierMonitor?.monitor
+        if global != nil || local != nil {
+            DispatchQueue.main.async {
+                if let m = global { NSEvent.removeMonitor(m) }
+                if let m = local { NSEvent.removeMonitor(m) }
+            }
         }
     }
 }

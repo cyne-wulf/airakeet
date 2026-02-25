@@ -2,6 +2,11 @@
 
 Airakeet uses a CoreML-optimized version of NVIDIA's Airakeet TDT 0.6B V2 Automatic Speech Recognition (ASR) model.
 
+## Supported Hardware
+- Apple Silicon MacBook Air or MacBook Pro (M1/M2/M3)
+- macOS 14 or newer
+- Microphone + Accessibility permissions to enable recording and text injection
+
 ## Checkpoint Information
 - **Model:** NVIDIA Airakeet TDT 0.6B V2 (English-only)
 - **HuggingFace ID:** `FluidInference/airakeet-tdt-0.6b-v2-coreml`
