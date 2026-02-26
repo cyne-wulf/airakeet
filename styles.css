@@ -569,6 +569,12 @@ main {
   font-weight: 600;
 }
 
+.highlight-glow {
+  color: var(--accent);
+  text-shadow: 0 0 10px rgba(110, 255, 198, 0.5), 0 0 20px rgba(110, 255, 198, 0.3);
+  font-weight: 500;
+}
+
 .template-card .template-snippet {
   margin-top: 1rem;
   border-radius: 1.5rem;
@@ -667,6 +673,32 @@ main {
   border: 1px solid rgba(255, 255, 255, 0.08);
   text-align: center;
   box-shadow: 0 35px 80px rgba(4, 8, 22, 0.7);
+}
+
+.form-feedback {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  background: rgba(110, 255, 198, 0.05);
+  border: 1px solid rgba(110, 255, 198, 0.2);
+  animation: fadeIn 0.4s ease-out;
+}
+
+.form-feedback h4 {
+  margin: 0 0 0.5rem;
+  color: var(--accent);
+  font-size: 1rem;
+}
+
+.form-feedback p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 footer {

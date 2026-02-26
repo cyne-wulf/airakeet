@@ -146,9 +146,11 @@ const purchaseForm = document.querySelector('.purchase-form');
 if (purchaseForm) {
   purchaseForm.addEventListener('submit', event => {
     event.preventDefault();
-    const formData = new FormData(purchaseForm);
-    const fullName = (formData.get('Full Name') || '').toString().trim();
-    const email = (formData.get('Preferred Email') || '').toString().trim();
+    
+    const fullName = (purchaseForm.elements['Full Name']?.value || '').trim();
+    const email = (purchaseForm.elements['Preferred Email']?.value || '').trim();
+    const mailtoAddress = purchaseForm.getAttribute('data-mailto') || 'acynewulf@gmail.com';
+    
     const subject = 'Airakeet Early Access Purchase';
     const bodyLines = [
       'Hello Airakeet team,',
@@ -160,18 +162,21 @@ if (purchaseForm) {
       '',
       'Thank you for providing a privacy-first dictation workflow.'
     ];
-    const body = encodeURIComponent(bodyLines.join('\n'));
-    const mailto = `mailto:${purchaseForm.dataset.mailto}?subject=${encodeURIComponent(subject)}&body=${body}`;
+    
+    const body = encodeURIComponent(bodyLines.join('\r\n'));
+    const mailto = `mailto:${mailtoAddress}?subject=${encodeURIComponent(subject)}&body=${body}`;
 
-    const link = document.createElement('a');
-    link.href = mailto;
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+    window.location.href = mailto;
 
-    setTimeout(() => {
-      window.location.href = mailto;
-    }, 150);
+    // Show "Didn't work?" feedback
+    if (!purchaseForm.nextElementSibling?.classList.contains('form-feedback')) {
+      const feedback = document.createElement('div');
+      feedback.className = 'form-feedback';
+      feedback.innerHTML = `
+        <h4>Didn't work?</h4>
+        <p>If your email app didn't open, you might not have a default client configured. You can use the copy/paste template to the right instead.</p>
+      `;
+      purchaseForm.parentNode.insertBefore(feedback, purchaseForm.nextSibling);
+    }
   });
 }
