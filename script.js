@@ -162,6 +162,16 @@ if (purchaseForm) {
     ];
     const body = encodeURIComponent(bodyLines.join('\n'));
     const mailto = `mailto:${purchaseForm.dataset.mailto}?subject=${encodeURIComponent(subject)}&body=${body}`;
-    window.location.href = mailto;
+
+    const link = document.createElement('a');
+    link.href = mailto;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    setTimeout(() => {
+      window.location.href = mailto;
+    }, 150);
   });
 }
