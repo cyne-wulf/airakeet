@@ -6,6 +6,12 @@ Airakeet is a proprietary, local-first dictation app designed specifically for t
 
 👉 Explore the new [Airakeet landing site](https://cyne-wulf.github.io/airakeet/) for visuals, feature highlights, and roadmap details.
 
+## Repository Layout
+- [`cyne-wulf/airakeet-code`](https://github.com/cyne-wulf/airakeet-code) *(private)* — macOS source, packaging scripts, internal docs, and updater assets. Invite-only access.
+- [`cyne-wulf/airakeet`](https://github.com/cyne-wulf/airakeet) *(public)* — the static marketing site served via GitHub Pages. Open for issue reports and content tweaks.
+
+To improve the website, work inside the public repo, open a pull request, and the content will deploy automatically to `https://cyne-wulf.github.io/airakeet/` once merged.
+
 ## Why Airakeet?
 I built this because I was tired of "lightweight" dictation apps that still consumed 2-3GB of RAM, choking my base model M2 Air. I wanted the accuracy of modern large models (like Whisper or Parakeet) but with the efficiency of a native tool.
 

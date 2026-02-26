@@ -1,7 +1,11 @@
 # Airakeet - Development Plan
 
 ## Project Vision
-Airakeet is a high-performance, local-first dictation app for macOS that aims to match the user experience of Superwhisper while remaining strictly open-source and powered by NVIDIA Parakeet ASR. It is designed specifically for the 8GB MacBook Air.
+Airakeet is a high-performance, local-first dictation app for macOS that aims to match the user experience of Superwhisper while remaining proprietary and powered by NVIDIA Parakeet ASR. It is designed specifically for the 8GB MacBook Air and is distributed through a private early-access program.
+
+## Repository Separation
+- `cyne-wulf/airakeet-code` (private) houses the macOS app, packaging scripts, and internal documentation. All engineering work happens here.
+- `cyne-wulf/airakeet` (public) contains the static marketing site that deploys to https://cyne-wulf.github.io/airakeet/. Marketing/content updates should be committed there.
 
 ## 8GB RAM Optimization Strategy (M2 MacBook Air Focus)
 On 8GB RAM machines, memory pressure is the primary constraint. 
