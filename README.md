@@ -2,7 +2,7 @@
 
 **The uncompromising transcription tool for base-model Apple Silicon.**
 
-Airakeet is an open-source, local-first dictation app designed specifically for the **8GB MacBook Air**. It brings the power of NVIDIA's Parakeet ASR model to your Mac without melting your RAM or draining your battery.
+Airakeet is a proprietary, local-first dictation app designed specifically for the **8GB MacBook Air**. It brings the power of NVIDIA's Parakeet ASR model to your Mac without melting your RAM or draining your battery, and it’s now available through a $5 early-access offer (regular $10) for early adopters who want to lock in pricing.
 
 👉 Explore the new [Airakeet landing site](https://cyne-wulf.github.io/airakeet/) for visuals, feature highlights, and roadmap details.
 
@@ -41,19 +41,23 @@ When the listening overlay is visible, Airakeet temporarily arms a global Escape
 ### Memory Management
 Airakeet uses an "extract-and-clear" strategy for audio data. Raw samples are moved out of active memory immediately when recording stops, and the ~800MB ASR model is automatically unloaded after 5 minutes of inactivity.
 
-## Installation & Build
-### Download  
-1. Grab the latest release from the [Releases Page](https://github.com/cyne-wulf/airakeet/releases).
-2. Drag the .app file into your Applications folder
+## Early Access & Pricing
+- **Early adopter price:** $5 one-time (standard pricing: $10). Buying now locks in the lower rate for the lifetime of the product.
+- **Closed-source distribution:** Access is provided only to approved buyers; redistribution is prohibited.
+- **Professional purchasing flow:** Start your purchase via the [Airakeet purchase page](https://cyne-wulf.github.io/airakeet/purchase) to email the team with your details.
+
+## How to Purchase & Install
+1. Visit the [purchase page](https://cyne-wulf.github.io/airakeet/purchase) and send the preformatted email to initiate your purchase.
+2. Follow the confirmation instructions you receive to access your personalized build.
+3. Move `Airakeet.app` into your Applications folder, grant Accessibility + Microphone permissions, and start dictating from the menubar.
 
 ### Updates
 Already running Airakeet? Click the status bar icon and choose **Check for Updates…**. The app will fetch the newest GitHub release, stream the download directly to disk, verify it, and replace your existing bundle. If macOS blocks the automatic replace (e.g., no write access to `/Applications`), Airakeet drops the new build in `~/Downloads` and lets you move it manually.
 
-### Build from Source
+### Build from Source (Invite Only)
+> Source access is limited to invited collaborators because the repository is private. If you have been granted access, follow the steps below.
+
 1. Clone the repository.
 2. Build the app bundle: `./package_app.sh`
 3. Drag `Airakeet.app` into **System Settings > Privacy & Security > Accessibility**.
 4. Launch `Airakeet.app`.
-
-## License
-MIT (App) / CC-BY-4.0 (Model)

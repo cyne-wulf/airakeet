@@ -34,7 +34,3 @@ If you wish to convert the original NVIDIA NeMo checkpoint manually:
 - **Decoding:** Greedy decoding (TDT)
 - **Hardware:** Apple Neural Engine (ANE) preferred, with GPU/CPU fallbacks.
 - **Latency Target:** < 2s for 5s of audio (Measured at 0.11s on M2).
-
-## Licensing
-The Airakeet-TDT-0.6B model is released by NVIDIA under the [Creative Commons Attribution 4.0 International (CC-BY-4.0)](https://creativecommons.org/licenses/by/4.0/) license.
-The CoreML conversion and integration are provided via [FluidAudio](https://github.com/FluidInference/FluidAudio).

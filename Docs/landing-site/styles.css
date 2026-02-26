@@ -57,6 +57,14 @@ nav {
   align-items: center;
 }
 
+.brand-link {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  text-decoration: none;
+  color: inherit;
+}
+
 .logo-squircle {
   width: 64px;
   height: 64px;
@@ -149,6 +157,11 @@ h3 {
   position: relative;
   z-index: 0;
   overflow: visible;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-family: inherit;
 }
 
 .btn.primary {
@@ -465,6 +478,134 @@ main {
   color: var(--muted);
 }
 
+.purchase-main {
+  padding: 0 clamp(1.5rem, 4vw, 4rem) 4rem;
+}
+
+.purchase-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+  margin-top: 2.5rem;
+}
+
+.purchase-card {
+  border-radius: 1.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(4, 8, 22, 0.75);
+  padding: clamp(1.75rem, 3vw, 2.75rem);
+  box-shadow: 0 25px 55px rgba(2, 6, 20, 0.5);
+}
+
+.purchase-card h2,
+.purchase-card h3 {
+  margin-top: 0;
+}
+
+.purchase-highlights {
+  list-style: disc;
+  list-style-position: outside;
+  padding-left: 1.5rem;
+  margin: 2rem 0 0;
+  color: var(--muted);
+}
+
+.purchase-highlights li {
+  margin-bottom: 0.6rem;
+}
+
+.purchase-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.purchase-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.purchase-form input,
+.purchase-form textarea {
+  border-radius: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  padding: 0.85rem 1rem;
+  font-size: 1rem;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.purchase-form textarea {
+  min-height: 120px;
+}
+
+.purchase-form input:focus,
+.purchase-form textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(110, 255, 198, 0.2);
+}
+
+.form-note {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-top: 0.75rem;
+}
+
+.system-requirements {
+  margin-top: 1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.85rem 1.1rem;
+  font-size: 0.95rem;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.template-card .template-snippet {
+  margin-top: 1rem;
+  border-radius: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 1.25rem;
+  font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--muted);
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+.purchase-faq {
+  margin-top: 3rem;
+}
+
+.faq-list {
+  list-style: none;
+  padding: 0;
+  margin: 1.5rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  color: var(--muted);
+}
+
+.faq-list strong {
+  color: var(--text);
+}
+
+.purchase-highlights li::marker,
+.faq-list li::marker {
+  color: var(--accent);
+}
+
 .timeline {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -573,6 +714,9 @@ footer {
   }
   .device-card {
     margin-top: 4rem;
+  }
+  .purchase-grid {
+    grid-template-columns: 1fr;
   }
 }
 
