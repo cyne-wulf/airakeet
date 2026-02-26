@@ -141,3 +141,27 @@ const year = document.getElementById('year');
 if (year) {
   year.textContent = new Date().getFullYear();
 }
+
+const purchaseForm = document.querySelector('.purchase-form');
+if (purchaseForm) {
+  purchaseForm.addEventListener('submit', event => {
+    event.preventDefault();
+    const formData = new FormData(purchaseForm);
+    const fullName = (formData.get('Full Name') || '').toString().trim();
+    const email = (formData.get('Preferred Email') || '').toString().trim();
+    const subject = 'Airakeet Early Access Purchase';
+    const bodyLines = [
+      'Hello Airakeet team,',
+      '',
+      'I would like to purchase the $5 early-access offer (standard $10).',
+      '',
+      `- Full name: ${fullName || '[Full Name]'}`,
+      `- Preferred email: ${email || '[Best email]'}`,
+      '',
+      'Thank you for providing a privacy-first dictation workflow.'
+    ];
+    const body = encodeURIComponent(bodyLines.join('\n'));
+    const mailto = `mailto:${purchaseForm.dataset.mailto}?subject=${encodeURIComponent(subject)}&body=${body}`;
+    window.location.href = mailto;
+  });
+}
