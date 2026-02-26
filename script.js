@@ -158,9 +158,7 @@ if (purchaseForm) {
       'I would like to purchase the $5 early-access offer (standard $10).',
       '',
       `- Full name: ${fullName || '[Full Name]'}`,
-      `- Preferred email: ${email || '[Best email]'}`,
-      '',
-      'Thank you for providing a privacy-first dictation workflow.'
+      `- Preferred email: ${email || '[Best email]'}`
     ];
     
     const body = encodeURIComponent(bodyLines.join('\r\n'));
