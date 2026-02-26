@@ -14,7 +14,7 @@ No build tooling is required. Update the HTML/CSS/JS files directly and open a p
 
 ## Deployment
 1. Commit updates to `main` (or merge via PR).
-2. GitHub Pages (Settings → Pages → `main`/`root`) serves the site at https://cyne-wulf.github.io/airakeet/.
+2. GitHub Pages (Settings → Pages → `main`/`root`) serves the site at https://cyne-wulf.github.io/airakeet/ and the custom domain https://airakeet.com/.
 
 ## Related Repositories
 - `cyne-wulf/airakeet-code` (private) – macOS application source and internal docs.
