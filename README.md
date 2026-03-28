@@ -2,15 +2,15 @@
 
 **The uncompromising transcription tool for base-model Apple Silicon.**
 
-Airakeet is a proprietary, local-first dictation app designed specifically for the **8GB MacBook Air**. It brings the power of NVIDIA's Parakeet ASR model to your Mac without melting your RAM or draining your battery, and it’s now available through a $5 early-access offer (regular $10) for early adopters who want to lock in pricing.
+Airakeet is an open-source, local-first dictation app designed specifically for the **8GB MacBook Air**. It brings the power of NVIDIA's Parakeet ASR model to your Mac without melting your RAM or draining your battery.
 
-👉 Explore the new [Airakeet landing site](https://cyne-wulf.github.io/airakeet/) for visuals, feature highlights, and roadmap details.
+👉 Explore the [Airakeet landing site](https://airakeet.com/) for visuals, feature highlights, and roadmap details.
 
 ## Repository Layout
-- [`cyne-wulf/airakeet-code`](https://github.com/cyne-wulf/airakeet-code) *(private)* — macOS source, packaging scripts, internal docs, and updater assets. Invite-only access.
-- [`cyne-wulf/airakeet`](https://github.com/cyne-wulf/airakeet) *(public)* — the static marketing site served via GitHub Pages. Open for issue reports and content tweaks.
+- [`cyne-wulf/airakeet`](https://github.com/cyne-wulf/airakeet) — the canonical repository for the macOS app, packaging scripts, internal docs, updater assets, and the GitHub Pages website.
+- [`website/`](./website) — static site source deployed to `https://airakeet.com/`.
 
-To improve the website, work inside the public repo, open a pull request, and the content will deploy automatically to `https://cyne-wulf.github.io/airakeet/` once merged.
+To improve the website, edit the HTML/CSS/JS files in [`website/`](./website) and merge the changes into `main`.
 
 ## Why Airakeet?
 I built this because I was tired of "lightweight" dictation apps that still consumed 2-3GB of RAM, choking my base model M2 Air. I wanted the accuracy of modern large models (like Whisper or Parakeet) but with the efficiency of a native tool.
@@ -47,22 +47,15 @@ When the listening overlay is visible, Airakeet temporarily arms a global Escape
 ### Memory Management
 Airakeet uses an "extract-and-clear" strategy for audio data. Raw samples are moved out of active memory immediately when recording stops, and the ~800MB ASR model is automatically unloaded after 5 minutes of inactivity.
 
-## Early Access & Pricing
-- **Early adopter price:** $5 one-time (standard pricing: $10). Buying now locks in the lower rate for the lifetime of the product.
-- **Closed-source distribution:** Access is provided only to approved buyers; redistribution is prohibited.
-- **Professional purchasing flow:** Start your purchase via the [Airakeet purchase page](https://cyne-wulf.github.io/airakeet/purchase) to email the team with your details.
-
-## How to Purchase & Install
-1. Visit the [purchase page](https://cyne-wulf.github.io/airakeet/purchase) and send the preformatted email to initiate your purchase.
-2. Follow the confirmation instructions you receive to access your personalized build.
-3. Move `Airakeet.app` into your Applications folder, grant Accessibility + Microphone permissions, and start dictating from the menubar.
+## Releases & Install
+1. Download the latest build from [GitHub Releases](https://github.com/cyne-wulf/airakeet/releases).
+2. Move `Airakeet.app` into your Applications folder.
+3. Grant Accessibility and Microphone permissions, then start dictating from the menubar.
 
 ### Updates
 Already running Airakeet? Click the status bar icon and choose **Check for Updates…**. The app will fetch the newest GitHub release, stream the download directly to disk, verify it, and replace your existing bundle. If macOS blocks the automatic replace (e.g., no write access to `/Applications`), Airakeet drops the new build in `~/Downloads` and lets you move it manually.
 
-### Build from Source (Invite Only)
-> Source access is limited to invited collaborators because the repository is private. If you have been granted access, follow the steps below.
-
+### Build from Source
 1. Clone the repository.
 2. Build the app bundle: `./package_app.sh`
 3. Drag `Airakeet.app` into **System Settings > Privacy & Security > Accessibility**.

@@ -32,7 +32,7 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     private let asrEngine = ASREngine()
     private let recorder = AudioRecorder()
     private let injector = TextInjector()
-    private let updateManager = UpdateManager(owner: "cyne-wulf", repo: "airakeet-code")
+    private let updateManager = UpdateManager(owner: "cyne-wulf", repo: "airakeet")
     let hotkeyManager = HotkeyManager()
     @Published var permissions = PermissionsManager()
     @Published var waveformColor: Color = .blue

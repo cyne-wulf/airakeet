@@ -1,5 +1,5 @@
 # Landing Site Source
 
-The marketing site now lives in the public [`cyne-wulf/airakeet`](https://github.com/cyne-wulf/airakeet) repository. Clone that repo to update the static HTML/CSS/JS assets and open pull requests there.
+The marketing site now lives in the canonical [`cyne-wulf/airakeet`](https://github.com/cyne-wulf/airakeet) repository under `website/`.
 
-GitHub Pages deploys from the `main` branch of that repo to https://cyne-wulf.github.io/airakeet/.
+GitHub Pages deploys from the unified repo's Pages workflow and publishes the `website/` directory to https://cyne-wulf.github.io/airakeet/ and https://airakeet.com/.
