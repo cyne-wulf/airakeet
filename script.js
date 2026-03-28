@@ -142,39 +142,47 @@ if (year) {
   year.textContent = new Date().getFullYear();
 }
 
-const purchaseForm = document.querySelector('.purchase-form');
-if (purchaseForm) {
-  purchaseForm.addEventListener('submit', event => {
+const contactForm = document.querySelector('.purchase-form');
+if (contactForm) {
+  contactForm.addEventListener('submit', event => {
     event.preventDefault();
-    
-    const fullName = (purchaseForm.elements['Full Name']?.value || '').trim();
-    const email = (purchaseForm.elements['Preferred Email']?.value || '').trim();
-    const mailtoAddress = purchaseForm.getAttribute('data-mailto') || 'acynewulf@gmail.com';
-    
-    const subject = 'Airakeet Early Access Purchase';
+
+    const fullName = (contactForm.elements['Full Name']?.value || '').trim();
+    const email = (contactForm.elements['Preferred Email']?.value || '').trim();
+    const topic = (contactForm.elements['Topic']?.value || '').trim();
+    const message = (contactForm.elements['Message']?.value || '').trim();
+    const mailtoAddress = contactForm.getAttribute('data-mailto') || 'acynewulf@gmail.com';
+
+    const subject = topic
+      ? `Airakeet: ${topic}`
+      : 'Airakeet contribution question';
     const bodyLines = [
-      'Hello Airakeet team,',
+      'Hello Airakeet,',
       '',
-      'I would like to purchase the $5 early-access offer (standard $10).',
+      'I have a question about Airakeet / I would like to contribute.',
       '',
       `- Full name: ${fullName || '[Full Name]'}`,
-      `- Preferred email: ${email || '[Best email]'}`
+      `- Preferred email: ${email || '[Best email]'}`,
+      `- Topic: ${topic || '[Contribution idea, bug report, or question]'}`,
+      '',
+      'Message:',
+      message || '[Your note here]'
     ];
-    
+
     const body = encodeURIComponent(bodyLines.join('\r\n'));
     const mailto = `mailto:${mailtoAddress}?subject=${encodeURIComponent(subject)}&body=${body}`;
 
     window.location.href = mailto;
 
     // Show "Didn't work?" feedback
-    if (!purchaseForm.nextElementSibling?.classList.contains('form-feedback')) {
+    if (!contactForm.nextElementSibling?.classList.contains('form-feedback')) {
       const feedback = document.createElement('div');
       feedback.className = 'form-feedback';
       feedback.innerHTML = `
         <h4>Didn't work?</h4>
         <p>If your email app didn't open, you might not have a default client configured. You can use the copy/paste template to the right instead.</p>
       `;
-      purchaseForm.parentNode.insertBefore(feedback, purchaseForm.nextSibling);
+      contactForm.parentNode.insertBefore(feedback, contactForm.nextSibling);
     }
   });
 }

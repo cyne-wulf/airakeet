@@ -1,10 +1,10 @@
 # Airakeet Landing Site
 
-This repository hosts the static marketing site for Airakeet, the proprietary, local-first dictation engine designed for 8GB Apple Silicon machines.
+This repository hosts the static website for Airakeet, the open-source, local-first dictation app designed for 8GB Apple Silicon machines.
 
 ## Structure
 - `index.html` – main landing page with product overview.
-- `purchase.html` – early-access purchase instructions and contact form.
+- `contribute.html` – download, contribution, and questions page.
 - `showcase.html` – placeholder for upcoming workflow gallery.
 - `styles.css` / `script.js` – shared styling and interactivity.
 - `Final-icon.png`, `share-card.png` – iconography and Open Graph assets.
@@ -17,5 +17,4 @@ No build tooling is required. Update the HTML/CSS/JS files directly and open a p
 2. GitHub Pages (Settings → Pages → `main`/`root`) serves the site at https://cyne-wulf.github.io/airakeet/ and the custom domain https://airakeet.com/.
 
 ## Related Repositories
-- `cyne-wulf/airakeet-code` (private) – macOS application source and internal docs.
-- `cyne-wulf/airakeet` (this repo) – public marketing site.
+- `cyne-wulf/airakeet` – GitHub repository, releases, and site content.
