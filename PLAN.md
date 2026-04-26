@@ -22,7 +22,7 @@ On 8GB RAM machines, memory pressure is the primary constraint.
     - `TextInjector`: Modern `NSPasteboard` logic with `Cmd+V` synthesis.
 - [x] **UI Prototype:** SwiftUI menubar app with a sleek, floating waveform overlay.
 - [x] **Memory Management:** Automatic idle unloading and extract-and-clear buffer logic implemented.
-- [x] **Customization:** Added Hotkey recorder, specialized Fn-key binder, and custom waveform color picker.
+- [x] **Hotkey Settings:** Added Hotkey recorder, specialized Fn-key binder, and fixed Airakeet waveform styling.
 - [x] **Debug Features:** "Play Last Recording" and "Save Recording" buttons implemented with zero-RAM disk caching.
 
 ---

@@ -35,7 +35,7 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     private let updateManager = UpdateManager(owner: "cyne-wulf", repo: "airakeet")
     let hotkeyManager = HotkeyManager()
     @Published var permissions = PermissionsManager()
-    @Published var waveformColor: Color = .blue
+    @Published var waveformColor = Color(.sRGB, red: 179/255, green: 215/255, blue: 253/255, opacity: 1)
     @Published var updateStatus: UpdateStatus = .idle
     @Published var latestRelease: ReleaseInfo?
     
@@ -93,19 +93,7 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     
     override init() {
         super.init()
-        loadSettings()
         setup()
-    }
-    
-    private func loadSettings() {
-        if let hex = UserDefaults.standard.string(forKey: "waveformColor") {
-            waveformColor = Color(hex: hex) ?? .blue
-        }
-    }
-    
-    func updateWaveformColor(_ color: Color) {
-        self.waveformColor = color
-        UserDefaults.standard.set(color.toHex(), forKey: "waveformColor")
     }
     
     private func setup() {
@@ -899,7 +887,7 @@ class StatusBarManager: NSObject, NSMenuDelegate {
         menu.addItem(NSMenuItem.separator())
         
         // --- Configuration Section ---
-        let hotkeyItem = NSMenuItem(title: "Hotkey & Appearance...", action: #selector(openHotkey), keyEquivalent: "k")
+        let hotkeyItem = NSMenuItem(title: "Hotkey Settings...", action: #selector(openHotkey), keyEquivalent: "k")
         hotkeyItem.target = self
         menu.addItem(hotkeyItem)
         
@@ -989,49 +977,4 @@ class StatusBarManager: NSObject, NSMenuDelegate {
     @objc func checkForUpdates() { controller.beginUpdateFlow() }
     @objc func openDebug() { controller.openDebugWindow() }
     @objc func quit() { controller.quit() }
-}
-
-// MARK: - Color Extensions for Persistence
-extension Color {
-    init?(hex: String) {
-        var hexSanitized = hex.trimmingCharacters(in: .whitespacesAndNewlines)
-        hexSanitized = hexSanitized.replacingOccurrences(of: "#", with: "")
-        
-        var rgb: UInt64 = 0
-        
-        var r: CGFloat = 0.0
-        var g: CGFloat = 0.0
-        var b: CGFloat = 0.0
-        var a: CGFloat = 1.0
-        
-        let length = hexSanitized.count
-        
-        guard Scanner(string: hexSanitized).scanHexInt64(&rgb) else { return nil }
-        
-        if length == 6 {
-            r = CGFloat((rgb & 0xFF0000) >> 16) / 255.0
-            g = CGFloat((rgb & 0x00FF00) >> 8) / 255.0
-            b = CGFloat(rgb & 0x0000FF) / 255.0
-        } else if length == 8 {
-            r = CGFloat((rgb & 0xFF000000) >> 24) / 255.0
-            g = CGFloat((rgb & 0x00FF0000) >> 16) / 255.0
-            b = CGFloat((rgb & 0x0000FF00) >> 8) / 255.0
-            a = CGFloat(rgb & 0x000000FF) / 255.0
-        } else {
-            return nil
-        }
-        
-        self.init(.sRGB, red: Double(r), green: Double(g), blue: Double(b), opacity: Double(a))
-    }
-    
-    func toHex() -> String {
-        let nsColor = NSColor(self)
-        guard let rgbColor = nsColor.usingColorSpace(.deviceRGB) else {
-            return "0000FF"
-        }
-        let r = Int(rgbColor.redComponent * 255)
-        let g = Int(rgbColor.greenComponent * 255)
-        let b = Int(rgbColor.blueComponent * 255)
-        return String(format: "%02X%02X%02X", r, g, b)
-    }
 }

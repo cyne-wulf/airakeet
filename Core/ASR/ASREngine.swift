@@ -42,11 +42,13 @@ public final class AsrManagerWrapper: @unchecked Sendable {
     }
     
     public func transcribe(_ samples: [Float]) async throws -> ASRResult {
-        return try await manager.transcribe(samples)
+        var decoderState = TdtDecoderState.make(decoderLayers: await manager.decoderLayerCount)
+        return try await manager.transcribe(samples, decoderState: &decoderState)
     }
     
     public func transcribe(_ url: URL) async throws -> ASRResult {
-        return try await manager.transcribe(url, source: .system)
+        var decoderState = TdtDecoderState.make(decoderLayers: await manager.decoderLayerCount)
+        return try await manager.transcribe(url, decoderState: &decoderState)
     }
 }
 
@@ -123,8 +125,7 @@ public final class ASREngine: Sendable {
             await appendLog("All components loaded and compiled successfully.")
             await updateProgress(0.9)
             
-            let manager = AsrManager(config: .default)
-            try await manager.initialize(models: models)
+            let manager = AsrManager(config: .default, models: models)
             
             let wrapper = AsrManagerWrapper(manager: manager)
             await managerContainer.initialize(with: wrapper)

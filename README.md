@@ -20,7 +20,6 @@ I built this because I was tired of "lightweight" dictation apps that still cons
 - **Superwhisper-like UX:** Menubar-only app with global hotkeys.
 - **Escape to cancel:** Press Esc while recording to discard safely (audio stays available via Debug > Play Last Recording).
 - **Reactive Waveform:** A sleek, liquid-motion overlay that reacts to your voice in real-time.
-- **Custom Appearance:** Choose your own waveform color to match your setup.
 - **Configurable Hotkeys:** Support for standard Mac shortcuts, custom `Fn + Key` combos, and a specialized `Shift + Fn` trigger.
 - **One-click Updates:** Use the new “Check for Updates…” menu item to download and install the latest GitHub release in-place.
 - **Audio Cache:** "Play Last Recording" feature in the debug menu to verify what the engine heard (disk-cached to save RAM).

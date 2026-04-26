@@ -3,13 +3,10 @@ import KeyboardShortcuts
 import Core
 
 struct HotkeySettingsView: View {
-    // Not observing here to avoid dynamic member lookup conflicts with bindings.
-    // The color state is managed locally and synced back.
     var controller: AppController
     
     @State private var isListeningForFnKey = false
     @State private var fnKeyHint = ""
-    @State private var localColor: Color = .blue
     @State private var useShiftFn: Bool = false
     
     var body: some View {
@@ -17,41 +14,14 @@ struct HotkeySettingsView: View {
             HStack {
                 Image(systemName: "keyboard")
                     .font(.largeTitle)
-                    .foregroundColor(localColor)
-                Text("Hotkey & Appearance")
+                    .foregroundColor(controller.waveformColor)
+                Text("Hotkey Settings")
                     .font(.headline)
                 Spacer()
             }
             
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    // Appearance Section
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("APPEARANCE")
-                            .font(.caption)
-                            .fontWeight(.bold)
-                            .foregroundColor(.secondary)
-                        
-                        HStack {
-                            Text("Waveform Color")
-                            Spacer()
-                            if localColor != .blue {
-                                Button("Reset Color") {
-                                    localColor = .blue
-                                    controller.updateWaveformColor(.blue)
-                                }
-                                .buttonStyle(.link)
-                                .font(.caption)
-                            }
-                            
-                            ColorPicker("", selection: $localColor)
-                                .labelsHidden()
-                        }
-                        .padding()
-                        .background(Color.gray.opacity(0.1))
-                        .cornerRadius(8)
-                    }
-                    
                     // Standard Recorder
                     VStack(alignment: .leading, spacing: 8) {
                         Text("ACTIVE SHORTCUT")
@@ -109,10 +79,10 @@ struct HotkeySettingsView: View {
                                     .frame(maxWidth: .infinity)
                             }
                             .buttonStyle(.bordered)
-                            .tint(isListeningForFnKey ? .orange : localColor)
+                            .tint(isListeningForFnKey ? .orange : controller.waveformColor)
                         }
                         .padding()
-                        .background(localColor.opacity(0.05))
+                        .background(controller.waveformColor.opacity(0.05))
                         .cornerRadius(8)
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
@@ -153,17 +123,13 @@ struct HotkeySettingsView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .tint(localColor)
+            .tint(controller.waveformColor)
         }
         .padding(30)
-        .frame(width: 400, height: 600)
+        .frame(width: 400, height: 460)
         .background(KeyEventHandler(isListening: $isListeningForFnKey))
         .onAppear {
-            self.localColor = controller.waveformColor
             self.useShiftFn = controller.useShiftFnShortcut
-        }
-        .onChange(of: localColor) { newColor in
-            controller.updateWaveformColor(newColor)
         }
     }
 }
@@ -232,24 +198,8 @@ struct KeyEventHandler: NSViewRepresentable {
 
 class HotkeySettingsWindow: NSWindow, NSWindowDelegate {
     static var shared: HotkeySettingsWindow?
-    private static var previousPolicy: NSApplication.ActivationPolicy?
-    
-    // LSUIElement apps cannot show NSColorPanel reliably; temporarily promote to .regular.
-    private static func promoteAppForColorPanelIfNeeded() {
-        guard previousPolicy == nil else { return }
-        previousPolicy = NSApp.activationPolicy()
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
-    }
-    
-    private static func restoreAppActivationPolicyIfNeeded() {
-        guard let policy = previousPolicy else { return }
-        NSApp.setActivationPolicy(policy)
-        previousPolicy = nil
-    }
     
     static func show(controller: AppController) {
-        promoteAppForColorPanelIfNeeded()
         NSApp.activate(ignoringOtherApps: true)
         
         if let shared = shared {
@@ -258,13 +208,13 @@ class HotkeySettingsWindow: NSWindow, NSWindowDelegate {
         }
         
         let window = HotkeySettingsWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 400, height: 600),
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 460),
             styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.center()
-        window.title = "Hotkey & Appearance"
+        window.title = "Hotkey Settings"
         window.contentView = NSHostingView(rootView: HotkeySettingsView(controller: controller))
         window.isReleasedWhenClosed = false
         window.delegate = window
@@ -274,6 +224,5 @@ class HotkeySettingsWindow: NSWindow, NSWindowDelegate {
     
     func windowWillClose(_ notification: Notification) {
         HotkeySettingsWindow.shared = nil
-        HotkeySettingsWindow.restoreAppActivationPolicyIfNeeded()
     }
 }

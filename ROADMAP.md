@@ -11,7 +11,7 @@ This roadmap outlines the plan for supporting "High-Tier" hardware (Apple Silico
 The goal is to allow Airakeet to adapt to the user's hardware, offering a choice between "Maximum Efficiency" and "Real-time Magic."
 
 ### 1. Engine Selector UI
-Add a toggle in the **Hotkey & Appearance** menu (or a new "Engine" settings pane):
+Add a toggle in the **Hotkey Settings** menu (or a new "Engine" settings pane):
 - **Standard (Low-Spec):** Optimized for 8GB RAM. Uses Parakeet-TDT 0.6B. (Current Default)
 - **Extreme (High-Spec):** Optimized for 16GB/32GB RAM. Uses Parakeet-EOU 1.1B.
 
