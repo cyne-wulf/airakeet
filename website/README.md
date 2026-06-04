@@ -6,6 +6,8 @@ This directory hosts the static website for Airakeet, the open-source, local-fir
 - `index.html` – main landing page with product overview.
 - `contribute.html` – download, contribution, and questions page.
 - `showcase.html` – placeholder for upcoming workflow gallery.
+- `_worker.js` – Cloudflare Pages content negotiation for `Accept: text/markdown`.
+- `*.md` – Markdown counterparts served to agents when deployed on Cloudflare Pages.
 - `styles.css` / `script.js` – shared styling and interactivity.
 - `Final-icon.png`, `share-card.png` – iconography and Open Graph assets.
 
