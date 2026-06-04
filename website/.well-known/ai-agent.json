@@ -1,0 +1,53 @@
+{
+  "name": "Airakeet",
+  "description": "Open-source, local-first dictation for Apple Silicon Macs. Airakeet runs NVIDIA Parakeet ASR on-device through CoreML and the Apple Neural Engine, with no hosted API, accounts, analytics, or cloud transcription.",
+  "version": "1.5.4",
+  "url": "https://airakeet.com/",
+  "homepage": "https://airakeet.com/",
+  "repository": "https://github.com/cyne-wulf/airakeet",
+  "releases": "https://github.com/cyne-wulf/airakeet/releases",
+  "icon": "https://airakeet.com/Final-icon.png",
+  "license": {
+    "app": "MIT",
+    "model": "CC-BY-4.0"
+  },
+  "capabilities": [
+    "local-first macOS dictation",
+    "on-device speech recognition",
+    "Apple Neural Engine execution",
+    "CoreML Parakeet ASR",
+    "clipboard text injection",
+    "global hotkeys",
+    "low-memory idle unload"
+  ],
+  "tags": [
+    "dictation",
+    "macos",
+    "apple-silicon",
+    "local-first",
+    "privacy",
+    "coreml",
+    "parakeet",
+    "speech-to-text"
+  ],
+  "protocols": [
+    "static-web"
+  ],
+  "endpoints": {
+    "homepage": "https://airakeet.com/",
+    "llms": "https://airakeet.com/llms.txt",
+    "agent_card": "https://airakeet.com/.well-known/agent-card.json",
+    "source": "https://github.com/cyne-wulf/airakeet",
+    "releases": "https://github.com/cyne-wulf/airakeet/releases"
+  },
+  "tools": [],
+  "authentication": {
+    "type": "none",
+    "instructions": "Airakeet does not expose a hosted API or account system."
+  },
+  "privacy": {
+    "cloud_transcription": false,
+    "analytics": false,
+    "audio_processing": "on-device"
+  }
+}

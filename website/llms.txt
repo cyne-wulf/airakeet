@@ -1,0 +1,39 @@
+# Airakeet
+
+> Airakeet is an open-source, local-first dictation app for Apple Silicon Macs. It runs NVIDIA Parakeet ASR on-device through CoreML and the Apple Neural Engine, keeps speech private, and is tuned for low-memory machines such as 8GB MacBook Airs.
+
+## Canonical links
+
+- Homepage: https://airakeet.com/
+- Source: https://github.com/cyne-wulf/airakeet
+- Releases: https://github.com/cyne-wulf/airakeet/releases
+- Social card: https://airakeet.com/share-card.png
+- Agent card: https://airakeet.com/.well-known/agent-card.json
+- AI agent manifest: https://airakeet.com/.well-known/ai-agent.json
+
+## What agents should know
+
+- Airakeet is a native macOS menubar dictation app, not a hosted transcription API.
+- Audio and transcription stay on device; the landing site does not provide cloud transcription, accounts, analytics, or a backend API.
+- The current engine is NVIDIA Parakeet TDT 0.6B V2 converted to CoreML and optimized for ANE execution.
+- The app unloads the approximately 800MB model after five minutes of inactivity to return memory to macOS.
+- Dictation is injected into the active text field through Clipboard + Cmd+V.
+- The app supports global hotkeys, a reactive waveform overlay, escape-to-cancel, update checks, audio cache/debug playback, and model cache management.
+- System requirements are Apple Silicon Macs running macOS 14 Sonoma or newer with microphone and Accessibility permissions.
+
+## Site map
+
+- `/` landing page with features, engineering notes, model comparison, roadmap, and download/source links.
+- `/llms.txt` this curated machine-readable summary.
+- `/robots.txt` crawl policy.
+- `/sitemap.xml` sitemap.
+- `/.well-known/agent-card.json` A2A-style discovery card for static product discovery.
+- `/.well-known/ai-agent.json` AI agent identity manifest.
+
+## Machine access
+
+Airakeet currently exposes no MCP server, no A2A task endpoint, no OAuth-protected resource, and no REST API. Agents should treat this site as a static product/distribution surface and use the GitHub repository or releases page for source and binary access.
+
+## License
+
+App: MIT. Model: CC-BY-4.0.
