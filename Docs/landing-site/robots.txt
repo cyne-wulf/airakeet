@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://airakeet.com/sitemap.xml
