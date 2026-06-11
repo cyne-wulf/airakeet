@@ -127,6 +127,10 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
         if KeyboardShortcuts.getShortcut(for: .toggleAirakeet) == nil {
             KeyboardShortcuts.setShortcut(KeyboardShortcuts.Shortcut(.backtick, modifiers: [.function]), for: .toggleAirakeet)
         }
+
+        // Pin KeyboardShortcuts' resource bundle while bundle paths are valid,
+        // so opening Settings later can never hit its Bundle.module fatalError.
+        KeyboardShortcutsSupport.warmUpIfPossible()
         
         // Initialize ASR engine
         Task {
@@ -544,8 +548,13 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
         recorder.selectedDeviceID = deviceID
     }
     
-    func openHotkeySettings() {
-        HotkeySettingsWindow.show(controller: self)
+    func openSettingsWindow() {
+        // Defer past the status-item menu's tracking teardown before touching
+        // activation policy or ordering windows.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            SettingsWindow.show(controller: self)
+        }
     }
     
     func openUpdateWindow() {
@@ -899,7 +908,7 @@ class StatusBarManager: NSObject, NSMenuDelegate {
         menu.addItem(NSMenuItem.separator())
         
         // --- Configuration Section ---
-        let hotkeyItem = NSMenuItem(title: "Hotkey & Appearance...", action: #selector(openHotkey), keyEquivalent: "k")
+        let hotkeyItem = NSMenuItem(title: "Settings...", action: #selector(openHotkey), keyEquivalent: ",")
         hotkeyItem.target = self
         menu.addItem(hotkeyItem)
         
@@ -972,7 +981,7 @@ class StatusBarManager: NSObject, NSMenuDelegate {
     
     @objc func copyLast() { controller.copyLastTranscript() }
     @objc func toggleLaunch() { controller.toggleStartAtLogin() }
-    @objc func openHotkey() { controller.openHotkeySettings() }
+    @objc func openHotkey() { controller.openSettingsWindow() }
     @objc func openFile() { controller.openFileTranscriptionWindow() }
     @objc func changeMode(_ sender: NSMenuItem) {
         if let mode = sender.representedObject as? RecordingMode {

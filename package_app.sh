@@ -18,17 +18,26 @@ if [ ! -f "$BINARY_PATH" ]; then
     exit 1
 fi
 
+if pgrep -x "$APP_NAME" > /dev/null; then
+    echo "WARNING: $APP_NAME is currently running. Replacing the bundle under a"
+    echo "         running instance leaves it with stale resources (and can crash"
+    echo "         it when it next loads one). Quit it before launching the new build."
+fi
+
+# Assemble the bundle in a staging directory and swap it in atomically at the
+# end, so a running or mid-launch instance never sees a half-copied bundle.
+STAGING="$APP_NAME.app.staging"
 echo "Creating $APP_NAME.app bundle..."
-rm -rf "$APP_NAME.app"
-mkdir -p "$APP_NAME.app/Contents/MacOS"
-mkdir -p "$APP_NAME.app/Contents/Resources"
+rm -rf "$STAGING"
+mkdir -p "$STAGING/Contents/MacOS"
+mkdir -p "$STAGING/Contents/Resources"
 
 # Copy binary
-cp "$BINARY_PATH" "$APP_NAME.app/Contents/MacOS/$APP_NAME"
+cp "$BINARY_PATH" "$STAGING/Contents/MacOS/$APP_NAME"
 
 # Copy Icon if it exists
 if [ -f "Airakeet.icns" ]; then
-    cp "Airakeet.icns" "$APP_NAME.app/Contents/Resources/"
+    cp "Airakeet.icns" "$STAGING/Contents/Resources/"
     ICON_ENTRY="<key>CFBundleIconFile</key><string>Airakeet</string>"
 else
     ICON_ENTRY=""
@@ -36,10 +45,10 @@ fi
 
 # CRITICAL FIX: Copy dependency resource bundles to prevent crashes in Bundle.module
 echo "Embedding resource bundles..."
-find "$BUILD_DIR" -name "*.bundle" -maxdepth 1 -exec cp -R {} "$APP_NAME.app/Contents/Resources/" \;
+find "$BUILD_DIR" -name "*.bundle" -maxdepth 1 -exec cp -R {} "$STAGING/Contents/Resources/" \;
 
 # Create Info.plist
-cat > "$APP_NAME.app/Contents/Info.plist" <<EOF
+cat > "$STAGING/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -66,7 +75,11 @@ cat > "$APP_NAME.app/Contents/Info.plist" <<EOF
 EOF
 
 echo "Ad-hoc signing $APP_NAME.app..."
-codesign --force --deep --sign - "$APP_NAME.app"
+codesign --force --deep --sign - "$STAGING"
+
+# Atomic swap: the fully-assembled, signed bundle replaces the old one in one move.
+rm -rf "$APP_NAME.app"
+mv "$STAGING" "$APP_NAME.app"
 
 echo "Done! Created $APP_NAME.app in the current directory."
 echo "--------------------------------------------------------"
