@@ -70,7 +70,7 @@ struct SettingsView: View {
             self.localColor = controller.waveformColor
             self.useShiftFn = controller.useShiftFnShortcut
         }
-        .onChange(of: localColor) { newColor in
+        .onChange(of: localColor) { _, newColor in
             controller.updateWaveformColor(newColor)
         }
     }

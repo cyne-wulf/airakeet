@@ -143,6 +143,14 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
         setupMenuRefreshPipeline()
 
         startPermissionPolling()
+
+        showWelcomeOnFirstLaunch()
+    }
+
+    private func showWelcomeOnFirstLaunch() {
+        guard !UserDefaults.standard.bool(forKey: "hasShownWelcome") else { return }
+        UserDefaults.standard.set(true, forKey: "hasShownWelcome")
+        openWelcomeWindow()
     }
     
     private func observePermissionChanges() {
@@ -701,7 +709,7 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
         guard startTask == nil else { return }
         permissions.checkAll()
         guard permissions.hasMicrophonePermission && permissions.hasAccessibilityPermission else {
-            openDebugWindow()
+            openWelcomeWindow()
             return
         }
         guard !isRecording else { return }
@@ -790,6 +798,15 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     func openDebugWindow() {
         NSApp.activate(ignoringOtherApps: true)
         DebugWindow.show(controller: self)
+    }
+
+    func openWelcomeWindow() {
+        // Deferred for the same reason as openSettingsWindow: menu actions
+        // fire while NSMenu tracking is still unwinding.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            WelcomeWindow.show(controller: self)
+        }
     }
     
     func quit() {
@@ -884,28 +901,29 @@ class StatusBarManager: NSObject, NSMenuDelegate {
         let titleItem = NSMenuItem(title: "Airakeet", action: nil, keyEquivalent: "")
         titleItem.isEnabled = false
         menu.addItem(titleItem)
-        
+
+        if controller.status == .loading {
+            let progressItem = NSMenuItem(
+                title: "Downloading model… \(Int(controller.loadProgress * 100))%",
+                action: nil,
+                keyEquivalent: ""
+            )
+            progressItem.isEnabled = false
+            menu.addItem(progressItem)
+        }
+
         menu.addItem(NSMenuItem.separator())
-        
-        // --- Permissions Section ---
+
+        // --- Setup Section (only when something needs attention) ---
         let micOk = controller.permissions.hasMicrophonePermission
         let accOk = controller.permissions.hasAccessibilityPermission
-        
-        let micStatusItem = NSMenuItem(title: micOk ? "● Microphone: Granted" : "○ Microphone: Missing", action: nil, keyEquivalent: "")
-        micStatusItem.isEnabled = false
-        menu.addItem(micStatusItem)
-        
-        let accStatusItem = NSMenuItem(title: accOk ? "● Accessibility: Granted" : "○ Accessibility: Missing", action: nil, keyEquivalent: "")
-        accStatusItem.isEnabled = false
-        menu.addItem(accStatusItem)
-        
-        if !micOk || !accOk {
-            let grantItem = NSMenuItem(title: "Grant Permissions...", action: #selector(openDebug), keyEquivalent: "")
-            grantItem.target = self
-            menu.addItem(grantItem)
+
+        if !micOk || !accOk || controller.status == .error {
+            let setupItem = NSMenuItem(title: "Finish Setup...", action: #selector(openWelcome), keyEquivalent: "")
+            setupItem.target = self
+            menu.addItem(setupItem)
+            menu.addItem(NSMenuItem.separator())
         }
-        
-        menu.addItem(NSMenuItem.separator())
         
         // --- Configuration Section ---
         let hotkeyItem = NSMenuItem(title: "Settings...", action: #selector(openHotkey), keyEquivalent: ",")
@@ -963,7 +981,11 @@ class StatusBarManager: NSObject, NSMenuDelegate {
         updateItem.isEnabled = controller.updateStatus.isClickable
         menu.addItem(updateItem)
         
-        let debugItem = NSMenuItem(title: "Open Test/Debug...", action: #selector(openDebug), keyEquivalent: "d")
+        let welcomeItem = NSMenuItem(title: "Setup Guide...", action: #selector(openWelcome), keyEquivalent: "")
+        welcomeItem.target = self
+        menu.addItem(welcomeItem)
+
+        let debugItem = NSMenuItem(title: "Debug...", action: #selector(openDebug), keyEquivalent: "d")
         debugItem.target = self
         menu.addItem(debugItem)
         
@@ -982,6 +1004,7 @@ class StatusBarManager: NSObject, NSMenuDelegate {
     @objc func copyLast() { controller.copyLastTranscript() }
     @objc func toggleLaunch() { controller.toggleStartAtLogin() }
     @objc func openHotkey() { controller.openSettingsWindow() }
+    @objc func openWelcome() { controller.openWelcomeWindow() }
     @objc func openFile() { controller.openFileTranscriptionWindow() }
     @objc func changeMode(_ sender: NSMenuItem) {
         if let mode = sender.representedObject as? RecordingMode {
