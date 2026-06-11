@@ -49,6 +49,7 @@ struct SettingsView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
+                    ModelSectionView(controller: controller)
                     appearanceSection
                     shortcutSection
                     fnBinderSection
@@ -64,7 +65,7 @@ struct SettingsView: View {
             .tint(localColor)
         }
         .padding(30)
-        .frame(width: 400, height: 600)
+        .frame(width: 400, height: 680)
         .background(KeyEventHandler(isListening: $isListeningForFnKey))
         .onAppear {
             self.localColor = controller.waveformColor
@@ -207,6 +208,123 @@ struct SettingsView: View {
     }
 }
 
+/// Radio-style picker between the on-device transcription models, with
+/// download-on-select progress and per-model cache removal.
+private struct ModelSectionView: View {
+    @ObservedObject var controller: AppController
+    @State private var modelPendingRemoval: TranscriptionModel?
+
+    private var selectionLocked: Bool {
+        controller.isRecording || controller.status == .transcribing || controller.status == .loading
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("TRANSCRIPTION MODEL")
+                .font(.caption)
+                .fontWeight(.bold)
+                .foregroundColor(.secondary)
+
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(TranscriptionModel.allCases, id: \.self) { model in
+                    modelRow(model)
+                    if model != TranscriptionModel.allCases.last {
+                        Divider()
+                    }
+                }
+
+                if controller.status == .loading {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ProgressView(value: controller.loadProgress)
+                        Text("Preparing model… \(Int(controller.loadProgress * 100))%")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.top, 8)
+                } else if controller.status == .error {
+                    Text("Model failed to load — check your connection, then select it again. Details in the Debug window.")
+                        .font(.caption2)
+                        .foregroundColor(.red)
+                        .padding(.top, 8)
+                }
+
+                Text("Both models run fully on-device.")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .padding(.top, 8)
+            }
+            .padding()
+            .background(Color.gray.opacity(0.1))
+            .cornerRadius(8)
+        }
+        .alert(
+            "Remove \(modelPendingRemoval?.displayName ?? "model") download?",
+            isPresented: Binding(
+                get: { modelPendingRemoval != nil },
+                set: { if !$0 { modelPendingRemoval = nil } }
+            )
+        ) {
+            Button("Remove", role: .destructive) {
+                if let model = modelPendingRemoval {
+                    controller.deleteModelCache(for: model)
+                }
+                modelPendingRemoval = nil
+            }
+            Button("Cancel", role: .cancel) {
+                modelPendingRemoval = nil
+            }
+        } message: {
+            Text("Frees the disk space (\(modelPendingRemoval?.approximateDownloadSize ?? "")). Selecting the model again re-downloads it.")
+        }
+    }
+
+    private func modelRow(_ model: TranscriptionModel) -> some View {
+        let isSelected = controller.selectedTranscriptionModel == model
+        let isDownloaded = controller.isModelDownloaded(model)
+
+        return HStack(alignment: .top, spacing: 10) {
+            Button(action: { controller.setTranscriptionModel(model) }) {
+                Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
+                    .foregroundColor(isSelected ? .accentColor : .secondary)
+                    .font(.title3)
+            }
+            .buttonStyle(.plain)
+            .disabled(selectionLocked)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(model.displayName)
+                    .fontWeight(isSelected ? .bold : .regular)
+                Text(model.detail)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                if !isSelected, isDownloaded {
+                    Button("Remove download") {
+                        modelPendingRemoval = model
+                    }
+                    .buttonStyle(.link)
+                    .font(.caption2)
+                }
+            }
+
+            Spacer()
+
+            Text(isSelected ? "Active" : (isDownloaded ? "Downloaded" : "Not downloaded"))
+                .font(.caption2)
+                .foregroundColor(isSelected ? .green : .secondary)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Color.secondary.opacity(0.1))
+                .cornerRadius(4)
+        }
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            guard !selectionLocked else { return }
+            controller.setTranscriptionModel(model)
+        }
+    }
+}
+
 /// A hidden view that monitors for local key events when active
 struct KeyEventHandler: NSViewRepresentable {
     @Binding var isListening: Bool
@@ -297,7 +415,7 @@ class SettingsWindow: NSWindow {
         }
 
         let window = SettingsWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 400, height: 600),
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 680),
             styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
