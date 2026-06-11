@@ -60,15 +60,32 @@ struct RecordingOverlayView: View {
             .frame(width: 75) // Fixed width for bar area
             
             VStack(alignment: .leading, spacing: 2) {
-                Text("Listening...")
-                    .font(.system(.body, design: .rounded))
-                    .fontWeight(.bold)
+                if controller.partialTranscript.isEmpty {
+                    Text("Listening...")
+                        .font(.system(.body, design: .rounded))
+                        .fontWeight(.bold)
+                        .fixedSize()
+                } else {
+                    // Live caption: newest words stay visible via head truncation.
+                    Text(controller.partialTranscript)
+                        .font(.system(.body, design: .rounded))
+                        .fontWeight(.bold)
+                        .lineLimit(1)
+                        .truncationMode(.head)
+                        .frame(maxWidth: 340, alignment: .leading)
+                }
                 Text("Esc to cancel")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+                    .fixedSize()
             }
             .padding(.leading, 4)
-            .fixedSize() // Prevents text from being cut off
+        }
+        .onChange(of: controller.partialTranscript) { _, _ in
+            // The capsule widens with the caption; keep it centered.
+            DispatchQueue.main.async {
+                OverlayWindow.shared?.centerOnScreen()
+            }
         }
     }
     

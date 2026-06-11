@@ -22,6 +22,9 @@ class OverlayWindow: NSWindow {
         
         let hostingView = NSHostingView(rootView: rootView)
         hostingView.translatesAutoresizingMaskIntoConstraints = false
+        // Track SwiftUI's preferred size so the capsule can widen for the
+        // live-caption text during streaming dictation.
+        hostingView.sizingOptions = .preferredContentSize
         self.contentView = hostingView
         self.hostingView = hostingView
         

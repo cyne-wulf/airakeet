@@ -9,6 +9,13 @@ public protocol AudioRecorderDelegate: AnyObject, Sendable {
     func audioRecorderDidUpdatePower(_ power: Float)
 }
 
+/// One capture callback's worth of mono audio at the device's native rate,
+/// delivered live while recording for streaming transcription.
+public struct LiveAudioChunk: Sendable {
+    public let samples: [Float]
+    public let sampleRate: Double
+}
+
 @MainActor
 public final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
     private let logger = Logger(subsystem: "com.airakeet.app", category: "AudioRecorder")
@@ -63,6 +70,28 @@ public final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBuffer
                 _samples.reserveCapacity(48000 * 60)
             }
             inputFormat = nil
+        }
+
+        // Live streaming tap. The continuation outlives reset() because it is
+        // installed just before startRecording() resets the accumulator.
+        private var _liveContinuation: AsyncStream<LiveAudioChunk>.Continuation?
+
+        func setLiveContinuation(_ continuation: AsyncStream<LiveAudioChunk>.Continuation?) {
+            lock.withLock {
+                _liveContinuation?.finish()
+                _liveContinuation = continuation
+            }
+        }
+
+        func yieldLive(_ chunk: LiveAudioChunk) {
+            lock.withLock { _ = _liveContinuation?.yield(chunk) }
+        }
+
+        func finishLive() {
+            lock.withLock {
+                _liveContinuation?.finish()
+                _liveContinuation = nil
+            }
         }
     }
     private let captureBuffer = CaptureBuffer()
@@ -199,7 +228,7 @@ public final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBuffer
         }
         
         captureBuffer.append(mixedSamples)
-        
+
         // Capture format on first buffer if not set
         if captureBuffer.inputFormat == nil {
             if let desc = CMSampleBufferGetFormatDescription(sampleBuffer),
@@ -208,19 +237,32 @@ public final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBuffer
                 captureBuffer.inputFormat = format
             }
         }
+
+        if let sampleRate = captureBuffer.inputFormat?.sampleRate {
+            captureBuffer.yieldLive(LiveAudioChunk(samples: mixedSamples, sampleRate: sampleRate))
+        }
+    }
+
+    /// Creates the live chunk stream for the next recording. Call before
+    /// startRecording(); the stream finishes when recording stops.
+    public func liveAudioStream() -> AsyncStream<LiveAudioChunk> {
+        AsyncStream { continuation in
+            captureBuffer.setLiveContinuation(continuation)
+        }
     }
     
     public func stopRecording() async throws -> (samples: [Float], duration: TimeInterval) {
         guard isRecording else { return ([], 0) }
-        
+
         isRecording = false
-        
+
         // stopRunning() should be on background thread
         let sessionToStop = captureSession
         DispatchQueue.global(qos: .userInitiated).async {
             sessionToStop?.stopRunning()
         }
-        
+
+        captureBuffer.finishLive()
         let rawSamples = captureBuffer.drainSamples()
         let format = captureBuffer.inputFormat
         

@@ -63,6 +63,10 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     @Published var isRecording = false
     @Published var currentPower: Float = 0
     @Published var mode: RecordingMode = .toggle
+    @Published var selectedTranscriptionModel: TranscriptionModel = .loadSelected()
+    /// Live transcript while a Nemotron streaming session is recording.
+    /// Always empty for the batch (Parakeet) backend.
+    @Published var partialTranscript: String = ""
     @Published var availableDevices: [AudioDeviceInfo] = []
     @Published var selectedDeviceID: String?
     
@@ -81,6 +85,8 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     
     private var startTask: Task<Void, Never>?
     private var transcriptionTask: Task<Void, Never>?
+    private var liveStreamTask: Task<Void, Never>?
+    private var streamingSessionActive = false
     private var updateTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
     private var audioPlayer: AVAudioPlayer?
@@ -371,6 +377,12 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
         resetIdleTimer()
         presentTransientOverlay(for: .cancelled, duration: 1.25)
         
+        let wasStreaming = streamingSessionActive
+        streamingSessionActive = false
+        liveStreamTask?.cancel()
+        liveStreamTask = nil
+        partialTranscript = ""
+
         Task { [weak self] in
             guard let self else { return }
             defer { self.isEscapeCancellationInFlight = false }
@@ -380,6 +392,9 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
                 self.updateHasLastRecording()
             } catch {
                 print("Airakeet: Escape cancel stop error: \(error)")
+            }
+            if wasStreaming {
+                await self.asrEngine.cancelStreamingSession()
             }
         }
     }
@@ -405,6 +420,35 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     }
     
     // MARK: - Model Management
+    /// Switches the transcription model; downloads it on first selection with
+    /// progress flowing through the existing status/loadProgress plumbing.
+    func setTranscriptionModel(_ model: TranscriptionModel) {
+        guard !isRecording, transcriptionTask == nil else { return }
+        selectedTranscriptionModel = model
+        Task {
+            do {
+                try await asrEngine.setModel(model)
+            } catch {
+                print("Airakeet: Model switch failed: \(error)")
+            }
+        }
+    }
+
+    func isModelDownloaded(_ model: TranscriptionModel) -> Bool {
+        asrEngine.isModelDownloaded(model)
+    }
+
+    func deleteModelCache(for model: TranscriptionModel) {
+        Task {
+            do {
+                try await asrEngine.deleteModelCache(for: model)
+                self.objectWillChange.send()
+            } catch {
+                print("Airakeet: Delete cache failed: \(error)")
+            }
+        }
+    }
+
     func loadModel() {
         Task {
             do {
@@ -729,9 +773,16 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
             do {
                 try await self.asrEngine.ensureInitialized()
                 try Task.checkCancellation()
+                let streaming = try await self.asrEngine.beginStreamingSession()
+                try Task.checkCancellation()
                 try await MainActor.run {
                     self.recorder.clearLastRecording()
                     self.updateHasLastRecording()
+                    self.partialTranscript = ""
+                    if streaming {
+                        self.streamingSessionActive = true
+                        self.startLiveStreamConsumer(self.recorder.liveAudioStream())
+                    }
                     try self.recorder.startRecording()
                 }
             } catch is CancellationError {
@@ -754,27 +805,60 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     func startManualRecording() {
         startRecording()
     }
+
+    /// Forwards captured audio to the streaming backend and publishes the
+    /// running partial transcript for the recording overlay.
+    private func startLiveStreamConsumer(_ stream: AsyncStream<LiveAudioChunk>) {
+        liveStreamTask?.cancel()
+        let engine = asrEngine
+        // Inherits MainActor; the per-chunk work happens inside the engine's
+        // actors, so only the partial-text publish runs here.
+        liveStreamTask = Task { [weak self] in
+            for await chunk in stream {
+                if Task.isCancelled { break }
+                guard let partial = try? await engine.streamChunk(samples: chunk.samples, sampleRate: chunk.sampleRate),
+                      !partial.isEmpty else { continue }
+                self?.partialTranscript = partial
+            }
+        }
+    }
     
     func stopRecording() {
         cancelPendingStart()
         guard isRecording else { return }
-        
+
         cancelActiveTranscriptionTask()
+        let wasStreaming = streamingSessionActive
+        streamingSessionActive = false
         transcriptionTask = Task {
-            defer { 
-                resetIdleTimer() 
+            defer {
+                resetIdleTimer()
                 transcriptionTask = nil
+                liveStreamTask = nil
+                partialTranscript = ""
             }
-            
+
             do {
                 let (samples, duration) = try await recorder.stopRecording()
                 self.lastClipDuration = duration
                 updateHasLastRecording()
                 if Task.isCancelled { return }
-                
-                let result = try await asrEngine.transcribe(samples: samples, audioDuration: duration)
+
+                let result: TranscriptionResult
+                if wasStreaming {
+                    // Drain the chunks still in flight, then flush the session.
+                    await liveStreamTask?.value
+                    var streamed = try await asrEngine.finishStreamingSession(audioDuration: duration)
+                    if streamed.text.isEmpty && duration >= shortClipThreshold {
+                        // Streaming produced nothing; rerun the full clip batch-style.
+                        streamed = try await asrEngine.transcribe(samples: samples, audioDuration: duration)
+                    }
+                    result = streamed
+                } else {
+                    result = try await asrEngine.transcribe(samples: samples, audioDuration: duration)
+                }
                 if Task.isCancelled { return }
-                
+
                 self.lastResult = result
                 injector.inject(result.text)
             } catch {
