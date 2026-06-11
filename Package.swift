@@ -10,7 +10,7 @@ let package = Package(
         .executable(name: "Airakeet", targets: ["App"])
     ],
     dependencies: [
-        .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.12.1"),
+        .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.15.2"),
         .package(url: "https://github.com/sindresorhus/KeyboardShortcuts", from: "2.0.0")
     ],
     targets: [

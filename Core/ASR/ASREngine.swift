@@ -33,20 +33,23 @@ public enum ASREngineStatus: String, Sendable {
     case error = "Error"
 }
 
-/// A thread-safe wrapper for FluidAudio's AsrManager
-public final class AsrManagerWrapper: @unchecked Sendable {
+/// A thin wrapper around FluidAudio's AsrManager actor that supplies a fresh
+/// per-utterance decoder state, matching the pre-0.15 convenience overloads.
+public final class AsrManagerWrapper: Sendable {
     public let manager: AsrManager
-    
+
     public init(manager: AsrManager) {
         self.manager = manager
     }
-    
+
     public func transcribe(_ samples: [Float]) async throws -> ASRResult {
-        return try await manager.transcribe(samples)
+        var decoderState = TdtDecoderState.make()
+        return try await manager.transcribe(samples, decoderState: &decoderState)
     }
-    
+
     public func transcribe(_ url: URL) async throws -> ASRResult {
-        return try await manager.transcribe(url, source: .system)
+        var decoderState = TdtDecoderState.make()
+        return try await manager.transcribe(url, decoderState: &decoderState)
     }
 }
 
@@ -124,7 +127,7 @@ public final class ASREngine: Sendable {
             await updateProgress(0.9)
             
             let manager = AsrManager(config: .default)
-            try await manager.initialize(models: models)
+            try await manager.loadModels(models)
             
             let wrapper = AsrManagerWrapper(manager: manager)
             await managerContainer.initialize(with: wrapper)
