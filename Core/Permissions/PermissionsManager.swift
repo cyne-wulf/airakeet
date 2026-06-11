@@ -40,13 +40,38 @@ public final class PermissionsManager: ObservableObject {
     }
     
     public func checkAccessibility() {
-        // Use AXIsProcessTrusted() directly as the source of truth
-        let trusted = AXIsProcessTrusted()
-        
+        // AXIsProcessTrusted() reads a per-process cache populated at first
+        // call, so a grant made while the app is running never flips it until
+        // relaunch. An active CGEvent tap is gated by the same Accessibility
+        // TCC service but is answered from the live database, so probe it as
+        // a fallback when the cached check says no.
+        let trusted = AXIsProcessTrusted() || Self.probeAccessibilityViaEventTap()
+
         if self.hasAccessibilityPermission != trusted {
             self.hasAccessibilityPermission = trusted
             logger.info("Accessibility permission updated: \(trusted)")
         }
+    }
+
+    /// Returns true when the live TCC database grants this process
+    /// Accessibility. Creating an active (.defaultTap) tap requires that
+    /// service; .listenOnly would test Input Monitoring instead. The tap is
+    /// never added to a run loop, so it receives no events, and it is torn
+    /// down immediately. Creation does not trigger a permission prompt.
+    private static func probeAccessibilityViaEventTap() -> Bool {
+        guard let tap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .defaultTap,
+            eventsOfInterest: CGEventMask(1 << CGEventType.keyDown.rawValue),
+            callback: { _, _, event, _ in Unmanaged.passUnretained(event) },
+            userInfo: nil
+        ) else {
+            return false
+        }
+        CGEvent.tapEnable(tap: tap, enable: false)
+        CFMachPortInvalidate(tap)
+        return true
     }
     
     public func requestAccessibility() {

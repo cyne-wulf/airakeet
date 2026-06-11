@@ -14,7 +14,21 @@ struct WelcomeView: View {
     }
 
     private var isReadyToDictate: Bool {
-        allPermissionsGranted && (controller.status == .ready || controller.status == .transcribing)
+        allPermissionsGranted && modelReady
+    }
+
+    /// The checklist cares about the model being on disk; the engine itself
+    /// is loaded on demand (and unloaded again after idling), so its
+    /// in-memory status alone would show "not downloaded" after a relaunch.
+    private var modelReady: Bool {
+        switch controller.status {
+        case .ready, .transcribing:
+            return true
+        case .loading, .error:
+            return false
+        case .idle:
+            return controller.isModelDownloaded(controller.selectedTranscriptionModel)
+        }
     }
 
     private var hotkeyDisplay: String {
@@ -113,22 +127,33 @@ struct WelcomeView: View {
     }
 
     private var accessibilityRow: some View {
-        checklistRow(
-            label: "Accessibility",
-            detail: "Lets Airakeet type for you.",
-            granted: controller.permissions.hasAccessibilityPermission
-        ) {
-            HStack(spacing: 6) {
-                Button("Grant") {
-                    controller.permissions.requestAccessibility()
+        VStack(alignment: .leading, spacing: 4) {
+            checklistRow(
+                label: "Accessibility",
+                detail: "Lets Airakeet type for you.",
+                granted: controller.permissions.hasAccessibilityPermission
+            ) {
+                HStack(spacing: 6) {
+                    Button("Grant") {
+                        controller.permissions.requestAccessibility()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    Button("Open System Settings") {
+                        controller.permissions.openSystemSettings()
+                    }
+                    .buttonStyle(.link)
+                    .font(.caption)
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                Button("Open System Settings") {
-                    controller.permissions.openSystemSettings()
-                }
-                .buttonStyle(.link)
-                .font(.caption)
+            }
+
+            if !controller.permissions.hasAccessibilityPermission {
+                // A stale entry from an older or moved copy of the app looks
+                // enabled in System Settings but never grants this binary.
+                Text("Already enabled? Remove any old Airakeet entry from the list, then add this copy.")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .padding(.leading, 34)
             }
         }
     }
@@ -137,7 +162,7 @@ struct WelcomeView: View {
     private var modelRow: some View {
         HStack {
             statusIcon(
-                done: controller.status == .ready || controller.status == .transcribing,
+                done: modelReady,
                 failed: controller.status == .error
             )
 
@@ -146,7 +171,7 @@ struct WelcomeView: View {
                     .fontWeight(.bold)
                 switch controller.status {
                 case .idle:
-                    Text("Downloads automatically (one time)")
+                    Text(modelReady ? "Model ready" : "Downloads automatically (one time)")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 case .loading:
