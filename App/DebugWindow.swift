@@ -41,11 +41,19 @@ struct DebugWindowView: View {
             
             if controller.status == .loading {
                 VStack(alignment: .leading, spacing: 4) {
-                    ProgressView(value: controller.loadProgress, total: 1.0)
-                        .progressViewStyle(.linear)
-                    Text("\(Int(controller.loadProgress * 100))%")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+                    if let progress = controller.loadProgress {
+                        ProgressView(value: progress, total: 1.0)
+                            .progressViewStyle(.linear)
+                        Text("\(Int(progress * 100))%")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    } else {
+                        ProgressView()
+                            .progressViewStyle(.linear)
+                        Text("Preparing model…")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
                     
                     Text("Initialization Logs:")
                         .font(.caption2)

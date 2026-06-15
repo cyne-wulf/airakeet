@@ -22,7 +22,10 @@ public struct TranscriptionResult: Sendable {
 @MainActor
 public protocol ASREngineDelegate: AnyObject, Sendable {
     func asrEngineDidUpdateStatus(_ status: ASREngineStatus)
-    func asrEngineDidUpdateProgress(_ progress: Double)
+    /// Load progress in [0, 1], or `nil` while a phase with no measurable
+    /// progress is running (e.g. Core ML compilation) so the UI can show an
+    /// indeterminate spinner instead of a frozen bar.
+    func asrEngineDidUpdateProgress(_ progress: Double?)
     func asrEngineDidUpdateLoadLog(_ log: String)
 }
 
@@ -102,22 +105,22 @@ public final class ASREngine: Sendable {
     }
     
     private func queueModelLoad(forceReload: Bool) async throws {
-        let task = await loadCoordinator.sharedTask {
+        let task = await loadCoordinator.beginLoad(forceReload: forceReload) {
             if forceReload {
                 await self.managerContainer.unload()
                 await self.updateStatus(.idle)
             }
             try await self.performModelInitialization()
         }
-        
+
         do {
             try await task.value
         } catch {
-            await loadCoordinator.clearTask()
+            await loadCoordinator.finish(task)
             throw error
         }
-        
-        await loadCoordinator.clearTask()
+
+        await loadCoordinator.finish(task)
     }
     
     private func performModelInitialization() async throws {
@@ -137,6 +140,11 @@ public final class ASREngine: Sendable {
             }
             await updateStatus(.ready)
             await updateProgress(1.0)
+        } catch is CancellationError {
+            // A newer load (e.g. an explicit model switch) superseded this one;
+            // let the replacement own the status/progress UI instead of flashing
+            // an error.
+            throw CancellationError()
         } catch {
             await appendLog("ERROR: \(error.localizedDescription)")
             await updateStatus(.error)
@@ -154,16 +162,20 @@ public final class ASREngine: Sendable {
 
         if AsrModels.modelsExist(at: cacheDir, version: .v2) {
             await appendLog("Cached models found. Starting compilation...")
-            await updateProgress(0.3)
         } else {
             await appendLog("Models missing. Initiating HuggingFace download (~800MB)...")
             await appendLog("This may take a few minutes depending on your internet speed.")
-            await updateProgress(0.2)
         }
 
-        let models = try await AsrModels.downloadAndLoad(version: .v2)
+        // FluidAudio reports the download (0→0.5) and a per-sub-model compile
+        // tick (0.5→1.0), so the bar advances during compile instead of
+        // freezing at a manual 0.3.
+        let models = try await AsrModels.downloadAndLoad(version: .v2, progressHandler: { [weak self] progress in
+            guard let self else { return }
+            Task { await self.handleParakeetLoadProgress(progress) }
+        })
         await appendLog("All components loaded and compiled successfully.")
-        await updateProgress(0.9)
+        await updateProgress(0.95)
 
         let manager = AsrManager(config: .default)
         try await manager.loadModels(models)
@@ -180,12 +192,17 @@ public final class ASREngine: Sendable {
 
         if isModelDownloaded(.nemotronStreaming) {
             await appendLog("Cached models found. Starting compilation...")
-            await updateProgress(0.3)
         } else {
             await appendLog("Models missing. Initiating HuggingFace download (~600MB)...")
             await appendLog("This may take a few minutes depending on your internet speed.")
             await updateProgress(0.2)
         }
+
+        // FluidAudio forwards the progress handler only to the download, not the
+        // Core ML compile, so go indeterminate up front. The download handler
+        // overrides this with real progress while files transfer, then restores
+        // the spinner once the (silent) compile begins.
+        await updateProgress(nil)
 
         let manager = StreamingNemotronAsrManager(requestedChunkSize: chunkSize)
         try await manager.loadModels(to: nil, progressHandler: { [weak self] progress in
@@ -200,11 +217,29 @@ public final class ASREngine: Sendable {
     }
 
     private func handleNemotronDownloadProgress(_ progress: DownloadUtils.DownloadProgress) async {
-        // Map the download's [0, 1] onto our 0.2–0.85 band; compilation and
-        // the surrounding steps own the rest of the bar.
-        await updateProgress(0.2 + progress.fractionCompleted * 0.65)
-        if case .downloading(let completed, let total) = progress.phase, total > 0 {
+        // FluidAudio only reports the download here; the compile is silent.
+        // Show determinate progress while files transfer (mapped onto 0.2–0.85),
+        // and hand back to the indeterminate spinner once the download is done.
+        if case .downloading(let completed, let total) = progress.phase, total > 0, completed < total {
+            await updateProgress(0.2 + progress.fractionCompleted * 0.65)
             await appendLog("Downloading model files (\(completed)/\(total))...")
+        } else {
+            await updateProgress(nil)
+        }
+    }
+
+    private func handleParakeetLoadProgress(_ progress: DownloadUtils.DownloadProgress) async {
+        // FluidAudio reports the download (0→0.5) then a per-sub-model compile
+        // tick (0.5→1.0). Map onto our 0.1–0.95 band; the final steps own the
+        // rest of the bar.
+        await updateProgress(0.1 + progress.fractionCompleted * 0.85)
+        switch progress.phase {
+        case .downloading(let completed, let total) where total > 0:
+            await appendLog("Downloading model files (\(completed)/\(total))...")
+        case .compiling(let modelName) where !modelName.isEmpty:
+            await appendLog("Compiling \(modelName)...")
+        default:
+            break
         }
     }
 
@@ -453,7 +488,7 @@ public final class ASREngine: Sendable {
         }
     }
     
-    private func updateProgress(_ progress: Double) async {
+    private func updateProgress(_ progress: Double?) async {
         if let d = await state.delegate {
             await MainActor.run { d.asrEngineDidUpdateProgress(progress) }
         }
@@ -540,20 +575,39 @@ extension ASREngine {
 
 actor LoadCoordinator {
     private var task: Task<Void, Error>?
-    
-    func sharedTask(starting operation: @escaping @Sendable () async throws -> Void) -> Task<Void, Error> {
-        if let task {
+
+    /// Returns the task that will complete the requested load.
+    ///
+    /// Non-force loads coalesce onto any in-flight load (e.g. the deferred
+    /// warmup plus a concurrent `ensureInitialized` share one load). A force
+    /// reload — an explicit model switch — never coalesces: it serializes after
+    /// the in-flight load so the final resident backend matches the most recent
+    /// selection rather than whatever the warmup happened to be loading.
+    func beginLoad(
+        forceReload: Bool,
+        operation: @escaping @Sendable () async throws -> Void
+    ) -> Task<Void, Error> {
+        if !forceReload, let task {
             return task
         }
-        
+
+        let previous = forceReload ? task : nil
         let newTask = Task {
+            if let previous {
+                previous.cancel()
+                _ = try? await previous.value
+            }
             try await operation()
         }
         task = newTask
         return newTask
     }
-    
-    func clearTask() {
-        task = nil
+
+    /// Clears the stored task only if it is still the one that finished, so a
+    /// superseded load's awaiter cannot clear the replacement task.
+    func finish(_ finished: Task<Void, Error>) {
+        if task == finished {
+            task = nil
+        }
     }
 }

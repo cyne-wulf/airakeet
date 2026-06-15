@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      Hardened Runtime is required for notarization. The app is deliberately NOT
+      sandboxed (it injects keystrokes via CGEvent, which the sandbox would block),
+      so we only declare the resource-access entitlement the hardened runtime gates:
+      microphone input. Accessibility is granted at runtime via TCC, not here.
+
+      If notarized/hardened-runtime testing ever surfaces a CoreML failure from the
+      FluidAudio ASR backend, add com.apple.security.cs.allow-jit and/or
+      com.apple.security.cs.disable-library-validation — but only if a real failure
+      appears.
+    -->
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
+</dict>
+</plist>

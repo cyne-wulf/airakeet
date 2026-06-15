@@ -235,10 +235,20 @@ private struct ModelSectionView: View {
 
                 if controller.status == .loading {
                     VStack(alignment: .leading, spacing: 4) {
-                        ProgressView(value: controller.loadProgress)
-                        Text("Preparing model… \(Int(controller.loadProgress * 100))%")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
+                        if let progress = controller.loadProgress {
+                            ProgressView(value: progress)
+                            Text("Preparing model… \(Int(progress * 100))%")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        } else {
+                            // Indeterminate: a measurable progress value isn't
+                            // available (e.g. Core ML compile), so animate.
+                            ProgressView()
+                                .progressViewStyle(.linear)
+                            Text("Preparing model…")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
                     }
                     .padding(.top, 8)
                 } else if controller.status == .error {

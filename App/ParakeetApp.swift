@@ -58,7 +58,9 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
     
     @Published var lastResult: TranscriptionResult?
     @Published var status: ASREngineStatus = .idle
-    @Published var loadProgress: Double = 0
+    /// Fraction in [0, 1], or `nil` while an unmeasurable phase (Core ML
+    /// compile) runs so the UI shows an indeterminate spinner, not a stuck bar.
+    @Published var loadProgress: Double? = 0
     @Published var loadLog: String = ""
     @Published var isRecording = false
     @Published var currentPower: Float = 0
@@ -740,7 +742,7 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
         }
     }
     
-    func asrEngineDidUpdateProgress(_ progress: Double) {
+    func asrEngineDidUpdateProgress(_ progress: Double?) {
         self.loadProgress = progress
     }
     
@@ -987,8 +989,14 @@ class StatusBarManager: NSObject, NSMenuDelegate {
         menu.addItem(titleItem)
 
         if controller.status == .loading {
+            let title: String
+            if let progress = controller.loadProgress {
+                title = "Downloading model… \(Int(progress * 100))%"
+            } else {
+                title = "Preparing model…"
+            }
             let progressItem = NSMenuItem(
-                title: "Downloading model… \(Int(controller.loadProgress * 100))%",
+                title: title,
                 action: nil,
                 keyEquivalent: ""
             )
@@ -1013,11 +1021,7 @@ class StatusBarManager: NSObject, NSMenuDelegate {
         let hotkeyItem = NSMenuItem(title: "Settings...", action: #selector(openHotkey), keyEquivalent: ",")
         hotkeyItem.target = self
         menu.addItem(hotkeyItem)
-        
-        let fileItem = NSMenuItem(title: "Transcribe Audio File...", action: #selector(openFile), keyEquivalent: "o")
-        fileItem.target = self
-        menu.addItem(fileItem)
-        
+
         // Start at Login
         let launchItem = NSMenuItem(title: "Start at Login", action: #selector(toggleLaunch), keyEquivalent: "")
         launchItem.target = self
@@ -1065,19 +1069,30 @@ class StatusBarManager: NSObject, NSMenuDelegate {
         updateItem.isEnabled = controller.updateStatus.isClickable
         menu.addItem(updateItem)
         
+        // --- Extras Submenu ---
+        let extrasMenu = NSMenu()
+
+        let fileItem = NSMenuItem(title: "Transcribe Audio File...", action: #selector(openFile), keyEquivalent: "o")
+        fileItem.target = self
+        extrasMenu.addItem(fileItem)
+
         let welcomeItem = NSMenuItem(title: "Setup Guide...", action: #selector(openWelcome), keyEquivalent: "")
         welcomeItem.target = self
-        menu.addItem(welcomeItem)
+        extrasMenu.addItem(welcomeItem)
 
         let debugItem = NSMenuItem(title: "Debug...", action: #selector(openDebug), keyEquivalent: "d")
         debugItem.target = self
-        menu.addItem(debugItem)
-        
+        extrasMenu.addItem(debugItem)
+
         let copyItem = NSMenuItem(title: "Copy Last Transcript", action: #selector(copyLast), keyEquivalent: "c")
         copyItem.target = self
         copyItem.isEnabled = controller.lastResult != nil
-        menu.addItem(copyItem)
-        
+        extrasMenu.addItem(copyItem)
+
+        let extrasItem = NSMenuItem(title: "Extras", action: nil, keyEquivalent: "")
+        extrasItem.submenu = extrasMenu
+        menu.addItem(extrasItem)
+
         menu.addItem(NSMenuItem.separator())
         
         let quitItem = NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q")

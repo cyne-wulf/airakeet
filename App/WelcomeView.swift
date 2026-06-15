@@ -147,15 +147,43 @@ struct WelcomeView: View {
                 }
             }
 
-            if !controller.permissions.hasAccessibilityPermission {
-                // A stale entry from an older or moved copy of the app looks
-                // enabled in System Settings but never grants this binary.
+            if controller.permissions.migrationLikely {
+                // Granted before but now revoked — almost always a stale entry
+                // left behind when the app's signature changed across an update.
+                // Offer a one-click fix instead of the manual hunt-and-remove.
+                migrationBanner
+            } else if !controller.permissions.hasAccessibilityPermission {
+                // First-time setup, or a stale entry from a moved copy.
                 Text("Already enabled? Remove any old Airakeet entry from the list, then add this copy.")
                     .font(.caption2)
                     .foregroundColor(.secondary)
                     .padding(.leading, 34)
             }
         }
+    }
+
+    private var migrationBanner: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Looks like you updated Airakeet")
+                .font(.caption)
+                .fontWeight(.semibold)
+            Text("Your old permission entry no longer matches this version. Click below to clear it and re-add Airakeet in one step.")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+            Button("Reset & re-add") {
+                controller.permissions.resetAccessibilityEntry()
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+            Text("This is a one-time step after updating — future updates won't ask again.")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.accentColor.opacity(0.12))
+        .cornerRadius(8)
+        .padding(.leading, 34)
     }
 
     @ViewBuilder
@@ -175,8 +203,15 @@ struct WelcomeView: View {
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 case .loading:
-                    ProgressView(value: controller.loadProgress)
-                        .frame(maxWidth: 180)
+                    Group {
+                        if let progress = controller.loadProgress {
+                            ProgressView(value: progress)
+                        } else {
+                            ProgressView()
+                                .progressViewStyle(.linear)
+                        }
+                    }
+                    .frame(maxWidth: 180)
                 case .ready, .transcribing:
                     Text("Model ready")
                         .font(.caption2)
@@ -191,10 +226,12 @@ struct WelcomeView: View {
             Spacer()
 
             if controller.status == .loading {
-                Text("\(Int(controller.loadProgress * 100))%")
-                    .font(.caption)
-                    .monospacedDigit()
-                    .foregroundColor(.secondary)
+                if let progress = controller.loadProgress {
+                    Text("\(Int(progress * 100))%")
+                        .font(.caption)
+                        .monospacedDigit()
+                        .foregroundColor(.secondary)
+                }
             } else if controller.status == .error {
                 Button("Retry") {
                     controller.loadModel()
