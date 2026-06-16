@@ -2,7 +2,7 @@
   "name": "Airakeet",
   "description": "Airakeet is an open-source, local-first macOS dictation app for Apple Silicon. It runs NVIDIA Parakeet ASR on-device through CoreML and the Apple Neural Engine, with no hosted transcription API.",
   "url": "https://airakeet.com/",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "documentationUrl": "https://airakeet.com/",
   "provider": {
     "organization": "Ashan Devine",
