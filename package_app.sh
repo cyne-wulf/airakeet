@@ -5,7 +5,7 @@ set -e
 
 APP_NAME="Airakeet"
 BUNDLE_ID="com.cyne-wulf.airakeet"
-APP_VERSION="1.6.0"
+APP_VERSION="1.6.1"
 
 # Code signing / notarization.
 #   SIGN_IDENTITY  - "Developer ID Application" matches the (single) Developer ID
@@ -20,11 +20,24 @@ APP_VERSION="1.6.0"
 SIGN_IDENTITY="${SIGN_IDENTITY:-Developer ID Application}"
 NOTARY_PROFILE="${NOTARY_PROFILE:-AirakeetNotary}"
 
-# Build for arm64 (Apple Silicon)
-echo "Building $APP_NAME in release mode (Apple Silicon)..."
-swift build -c release --product Airakeet --arch arm64
+# Build for arm64 (Apple Silicon) with xcodebuild — NOT `swift build`.
+# `swift build` makes each dependency's generated `Bundle.module` accessor resolve
+# resources from Bundle.main.bundleURL (the .app ROOT, which can't hold code-signed
+# content) plus a hardcoded build-dir path that only exists on this machine. That is
+# why resource-bearing deps like KeyboardShortcuts launched fine here but crashed
+# instantly on every other Mac. xcodebuild generates the app-style accessor that
+# checks Bundle.main.resourceURL (Contents/Resources) first, so the embedded bundle
+# is found on any machine.
+echo "Building $APP_NAME in release mode (Apple Silicon) via xcodebuild..."
+DERIVED_DATA=".xcode-build"
+rm -rf "$DERIVED_DATA"
+xcodebuild -scheme "$APP_NAME" -configuration Release \
+    -destination 'generic/platform=macOS' \
+    -derivedDataPath "$DERIVED_DATA" \
+    ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
+    build
 
-BUILD_DIR=".build/arm64-apple-macosx/release"
+BUILD_DIR="$DERIVED_DATA/Build/Products/Release"
 BINARY_PATH="$BUILD_DIR/$APP_NAME"
 
 if [ ! -f "$BINARY_PATH" ]; then
