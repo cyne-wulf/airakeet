@@ -5,7 +5,7 @@ set -e
 
 APP_NAME="Airakeet"
 BUNDLE_ID="com.cyne-wulf.airakeet"
-APP_VERSION="1.6.1"
+APP_VERSION="1.6.2"
 
 # Code signing / notarization.
 #   SIGN_IDENTITY  - "Developer ID Application" matches the (single) Developer ID

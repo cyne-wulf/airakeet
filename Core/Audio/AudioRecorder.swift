@@ -72,6 +72,13 @@ public final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBuffer
             inputFormat = nil
         }
 
+        func clearSamples() {
+            lock.withLock {
+                _samples = []
+                _samples.reserveCapacity(48000 * 60)
+            }
+        }
+
         // Live streaming tap. The continuation outlives reset() because it is
         // installed just before startRecording() resets the accumulator.
         private var _liveContinuation: AsyncStream<LiveAudioChunk>.Continuation?
@@ -114,7 +121,7 @@ public final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBuffer
         return discoverySession.devices
     }
     
-    public func startRecording() throws {
+    public func startRecording() async throws {
         guard !isRecording else { return }
         
         let session = AVCaptureSession()
@@ -155,14 +162,13 @@ public final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBuffer
         self.captureSession = session
         self.audioOutput = output
         
-        // startRunning() must be called on a background thread to avoid UI hang
         let sessionToRun = session
         DispatchQueue.global(qos: .userInitiated).async {
             sessionToRun.startRunning()
         }
-        
+
         isRecording = true
-        logger.info("Recording started with device: \(device.localizedName)")
+        logger.info("Recording start requested with device: \(device.localizedName, privacy: .public)")
     }
     
     nonisolated public func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {

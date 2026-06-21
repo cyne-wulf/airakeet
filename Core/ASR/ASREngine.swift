@@ -47,12 +47,12 @@ public final class AsrManagerWrapper: Sendable {
     }
 
     public func transcribe(_ samples: [Float]) async throws -> ASRResult {
-        var decoderState = TdtDecoderState.make()
+        var decoderState = TdtDecoderState.make(decoderLayers: await manager.decoderLayerCount)
         return try await manager.transcribe(samples, decoderState: &decoderState)
     }
 
     public func transcribe(_ url: URL) async throws -> ASRResult {
-        var decoderState = TdtDecoderState.make()
+        var decoderState = TdtDecoderState.make(decoderLayers: await manager.decoderLayerCount)
         return try await manager.transcribe(url, decoderState: &decoderState)
     }
 }
@@ -134,7 +134,19 @@ public final class ASREngine: Sendable {
         do {
             switch model {
             case .parakeetV2:
-                try await initializeParakeet()
+                try await initializeParakeet(
+                    version: .v2,
+                    selectedModel: .parakeetV2,
+                    targetDescription: "NVIDIA Parakeet TDT 0.6B (v2)",
+                    downloadHint: "~800MB"
+                )
+            case .parakeetFast110M:
+                try await initializeParakeet(
+                    version: .tdtCtc110m,
+                    selectedModel: .parakeetFast110M,
+                    targetDescription: "NVIDIA Parakeet TDT-CTC 110M",
+                    downloadHint: "~250MB"
+                )
             case .nemotronStreaming:
                 try await initializeNemotron()
             }
@@ -152,25 +164,30 @@ public final class ASREngine: Sendable {
         }
     }
 
-    private func initializeParakeet() async throws {
-        await appendLog("Targeting NVIDIA Parakeet TDT 0.6B (v2)")
+    private func initializeParakeet(
+        version: AsrModelVersion,
+        selectedModel: TranscriptionModel,
+        targetDescription: String,
+        downloadHint: String
+    ) async throws {
+        await appendLog("Targeting \(targetDescription)")
         await appendLog("Checking local cache...")
         await updateProgress(0.1)
 
-        let cacheDir = AsrModels.defaultCacheDirectory(for: .v2)
+        let cacheDir = AsrModels.defaultCacheDirectory(for: version)
         await appendLog("Cache directory: \(cacheDir.lastPathComponent)")
 
-        if AsrModels.modelsExist(at: cacheDir, version: .v2) {
+        if AsrModels.modelsExist(at: cacheDir, version: version) {
             await appendLog("Cached models found. Starting compilation...")
         } else {
-            await appendLog("Models missing. Initiating HuggingFace download (~800MB)...")
+            await appendLog("Models missing. Initiating HuggingFace download (\(downloadHint))...")
             await appendLog("This may take a few minutes depending on your internet speed.")
         }
 
         // FluidAudio reports the download (0→0.5) and a per-sub-model compile
         // tick (0.5→1.0), so the bar advances during compile instead of
         // freezing at a manual 0.3.
-        let models = try await AsrModels.downloadAndLoad(version: .v2, progressHandler: { [weak self] progress in
+        let models = try await AsrModels.downloadAndLoad(version: version, progressHandler: { [weak self] progress in
             guard let self else { return }
             Task { await self.handleParakeetLoadProgress(progress) }
         })
@@ -180,7 +197,7 @@ public final class ASREngine: Sendable {
         let manager = AsrManager(config: .default)
         try await manager.loadModels(models)
 
-        await managerContainer.set(.parakeet(AsrManagerWrapper(manager: manager)), model: .parakeetV2)
+        await managerContainer.set(.parakeet(AsrManagerWrapper(manager: manager)), model: selectedModel)
         await appendLog("ASR Manager initialized. Ready for dictation.")
     }
 
@@ -260,6 +277,11 @@ public final class ASREngine: Sendable {
         switch model {
         case .parakeetV2:
             return AsrModels.modelsExist(at: AsrModels.defaultCacheDirectory(for: .v2), version: .v2)
+        case .parakeetFast110M:
+            return AsrModels.modelsExist(
+                at: AsrModels.defaultCacheDirectory(for: .tdtCtc110m),
+                version: .tdtCtc110m
+            )
         case .nemotronStreaming:
             let encoderPath = Self.nemotronCacheDirectory(for: Self.nemotronChunkSize)
                 .appendingPathComponent("encoder/encoder_int8.mlmodelc")
@@ -278,6 +300,8 @@ public final class ASREngine: Sendable {
         switch model {
         case .parakeetV2:
             cacheDir = AsrModels.defaultCacheDirectory(for: .v2)
+        case .parakeetFast110M:
+            cacheDir = AsrModels.defaultCacheDirectory(for: .tdtCtc110m)
         case .nemotronStreaming:
             cacheDir = Self.nemotronCacheDirectory(for: Self.nemotronChunkSize)
         }
@@ -319,6 +343,7 @@ public final class ASREngine: Sendable {
                 transcriptionTime: transcriptionTime,
                 totalTime: totalTime
             )
+            logger.info("Transcription complete: audio=\(audioDuration, privacy: .public)s inference=\(transcriptionTime, privacy: .public)s rtf=\(metrics.realTimeFactor, privacy: .public)x")
 
             await updateStatus(.ready)
             return TranscriptionResult(text: text, metrics: metrics)

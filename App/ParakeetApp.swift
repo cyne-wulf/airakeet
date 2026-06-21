@@ -767,36 +767,63 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
         
         let task = Task { [weak self] in
             guard let self = self else { return }
+            var openedStreamingSession = false
             defer {
                 Task { @MainActor in
                     self.startTask = nil
                 }
             }
             do {
-                try await self.asrEngine.ensureInitialized()
-                try Task.checkCancellation()
-                let streaming = try await self.asrEngine.beginStreamingSession()
-                try Task.checkCancellation()
-                try await MainActor.run {
+                let needsStreamingSession = await MainActor.run {
+                    self.selectedTranscriptionModel == .nemotronStreaming
+                }
+                if needsStreamingSession {
+                    try await self.asrEngine.ensureInitialized()
+                    try Task.checkCancellation()
+                    let streaming = try await self.asrEngine.beginStreamingSession()
+                    try Task.checkCancellation()
+                    openedStreamingSession = streaming
+                }
+                await MainActor.run {
                     self.recorder.clearLastRecording()
                     self.updateHasLastRecording()
                     self.partialTranscript = ""
-                    if streaming {
+                    if openedStreamingSession {
                         self.streamingSessionActive = true
                         self.startLiveStreamConsumer(self.recorder.liveAudioStream())
                     }
-                    try self.recorder.startRecording()
+                }
+                try await self.recorder.startRecording()
+                if !needsStreamingSession {
+                    let engine = self.asrEngine
+                    Task.detached(priority: .utility) {
+                        try? await engine.ensureInitialized()
+                    }
                 }
             } catch is CancellationError {
                 await MainActor.run {
+                    self.streamingSessionActive = false
+                    self.liveStreamTask?.cancel()
+                    self.liveStreamTask = nil
+                    self.partialTranscript = ""
                     self.resetIdleTimer()
                     self.hideOverlay()
+                }
+                if openedStreamingSession {
+                    await self.asrEngine.cancelStreamingSession()
                 }
             } catch {
                 print("Airakeet: Start error: \(error)")
                 await MainActor.run {
+                    self.streamingSessionActive = false
+                    self.liveStreamTask?.cancel()
+                    self.liveStreamTask = nil
+                    self.partialTranscript = ""
                     self.resetIdleTimer()
                     self.presentTransientOverlay(for: .generalError)
+                }
+                if openedStreamingSession {
+                    await self.asrEngine.cancelStreamingSession()
                 }
             }
         }
@@ -857,6 +884,7 @@ class AppController: NSObject, ObservableObject, HotkeyManagerDelegate, ASREngin
                     }
                     result = streamed
                 } else {
+                    try await asrEngine.ensureInitialized()
                     result = try await asrEngine.transcribe(samples: samples, audioDuration: duration)
                 }
                 if Task.isCancelled { return }

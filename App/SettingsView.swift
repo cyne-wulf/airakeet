@@ -258,7 +258,7 @@ private struct ModelSectionView: View {
                         .padding(.top, 8)
                 }
 
-                Text("Both models run fully on-device.")
+                Text("All models run fully on-device.")
                     .font(.caption2)
                     .foregroundColor(.secondary)
                     .padding(.top, 8)
